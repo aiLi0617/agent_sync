@@ -27,6 +27,10 @@ setup_file() {
     printf '%s\n' '---' 'paths:' '  - "**/*.dart"' '---' '' '# Scoped Fixture Rule' '' '- Body.' \
         > .ai/src/rules/scoped-fixture.md
 
+    # Explicit-only command — Codex needs agents/openai.yaml to honor the flag.
+    printf '%s\n' '---' 'description: Explicit-only fixture command' 'disable-model-invocation: true' '---' '' 'Body.' \
+        > .ai/src/commands/explicit-only.md
+
     AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" sync
 }
 
@@ -157,6 +161,23 @@ setup() {
     # Native skill 'review' coexists with generated 'command-review'.
     [ -d ".agents/skills/review" ]
     [ -d ".agents/skills/command-review" ]
+}
+
+@test "sync: Codex generated skill opts out of implicit invocation when the command disables model invocation" {
+    [ -f ".agents/skills/command-explicit-only/agents/openai.yaml" ]
+    grep -q '^  allow_implicit_invocation: false$' ".agents/skills/command-explicit-only/agents/openai.yaml"
+    [ ! -e ".agents/skills/command-fix-issue/agents/openai.yaml" ]
+}
+
+@test "sync: Codex drops the openai.yaml opt-out once the command allows model invocation again" {
+    printf '%s\n' '---' 'description: Explicit-only fixture command' '---' '' 'Body.' \
+        > .ai/src/commands/explicit-only.md
+    AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" sync >/dev/null 2>&1
+    [ ! -e ".agents/skills/command-explicit-only/agents/openai.yaml" ]
+    printf '%s\n' '---' 'description: Explicit-only fixture command' 'disable-model-invocation: true' '---' '' 'Body.' \
+        > .ai/src/commands/explicit-only.md
+    AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" sync >/dev/null 2>&1
+    [ -f ".agents/skills/command-explicit-only/agents/openai.yaml" ]
 }
 
 @test "sync: Codex repeat sync is idempotent (no command-* sweep)" {

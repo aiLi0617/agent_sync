@@ -485,6 +485,23 @@ sync_commands_as_skills() {
         if declare -f manifest_record_write >/dev/null 2>&1; then
             manifest_record_write "$skill_file"
         fi
+
+        # Codex ignores disable-model-invocation; agents/openai.yaml is its opt-out from
+        # implicit selection: https://learn.chatgpt.com/docs/build-skills
+        local policy_file="$skill_dir/agents/openai.yaml"
+        if [[ "$(read_frontmatter_field "$src_file" "disable-model-invocation")" == "true" ]]; then
+            ensure_dir "$skill_dir/agents"
+            {
+                printf 'policy:\n'
+                printf '  allow_implicit_invocation: false\n'
+            } > "$policy_file"
+            if declare -f manifest_record_write >/dev/null 2>&1; then
+                manifest_record_write "$policy_file"
+            fi
+        elif [[ -f "$policy_file" ]]; then
+            rm -f "$policy_file"
+            rmdir "$skill_dir/agents" 2>/dev/null || true
+        fi
     done
 
     local d d_name
