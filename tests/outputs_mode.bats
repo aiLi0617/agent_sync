@@ -25,24 +25,24 @@ drop_outputs_key() {
 }
 
 @test "outputs: init defaults new projects to committed" {
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
     grep -q "^outputs: committed" .ai/agent_sync.yaml
 }
 
 @test "outputs: init --outputs local writes local" {
-    run_agentsync init --tools claude --yes --outputs local >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync --outputs local >/dev/null 2>&1
     grep -q "^outputs: local" .ai/agent_sync.yaml
 }
 
 @test "outputs: init rejects an unknown mode" {
-    run run_agentsync init --tools claude --yes --outputs bogus
+    run run_agentsync init --tools claude --yes --no-sync --outputs bogus
     [ "$status" -ne 0 ]
     [[ "$output" == *"committed"* ]]
     [[ "$output" == *"local"* ]]
 }
 
 @test "outputs: committed sync leaves generated files and the manifest visible to git" {
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
     run_agentsync sync >/dev/null 2>&1
     [ -f CLAUDE.md ]
     ! git check-ignore -q CLAUDE.md
@@ -51,14 +51,14 @@ drop_outputs_key() {
 }
 
 @test "outputs: local sync gitignores generated files and the manifest" {
-    run_agentsync init --tools claude --yes --outputs local >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync --outputs local >/dev/null 2>&1
     run_agentsync sync >/dev/null 2>&1
     git check-ignore -q CLAUDE.md
     git check-ignore -q .ai/.sync-manifest
 }
 
 @test "outputs: switching local to committed empties the managed block" {
-    run_agentsync init --tools claude --yes --outputs local >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync --outputs local >/dev/null 2>&1
     run_agentsync sync >/dev/null 2>&1
     git check-ignore -q CLAUDE.md
 
@@ -70,7 +70,7 @@ drop_outputs_key() {
 }
 
 @test "outputs: a missing key keeps the pre-existing local behaviour" {
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
     drop_outputs_key
     run_agentsync sync >/dev/null 2>&1
     git check-ignore -q CLAUDE.md
@@ -78,7 +78,7 @@ drop_outputs_key() {
 }
 
 @test "outputs: a missing key with gitignore.update false means committed" {
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
     drop_outputs_key
     sed "s/^  update: true/  update: false/" .ai/agent_sync.yaml > .ai/agent_sync.yaml.tmp
     mv .ai/agent_sync.yaml.tmp .ai/agent_sync.yaml
@@ -89,7 +89,7 @@ drop_outputs_key() {
 }
 
 @test "outputs: an unknown value fails sync before writing anything" {
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
     set_outputs_mode bogus
     run run_agentsync sync
     [ "$status" -ne 0 ]
@@ -98,7 +98,7 @@ drop_outputs_key() {
 }
 
 @test "outputs: committed mode still gitignores profile config homes" {
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
     run_agentsync profile add hub --tools claude >/dev/null 2>&1
     run_agentsync sync >/dev/null 2>&1
     grep -q "claude-hub" .gitignore

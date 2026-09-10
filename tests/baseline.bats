@@ -7,7 +7,7 @@ load test_helper
 
 setup() {
     setup_test_project
-    run_agentsync init --tools claude --yes >/dev/null 2>&1
+    run_agentsync init --tools claude --yes --no-sync >/dev/null 2>&1
 }
 
 teardown() {

@@ -224,7 +224,8 @@ teardown() {
     printf 'claude-before\n' > CLAUDE.md
     printf 'settings-before\n' > .claude/settings.json
 
-    run run_agentsync init --tools claude
+    # --no-sync so .latest is init's own snapshot, not the first sync's.
+    run run_agentsync init --tools claude --no-sync
     [ "$status" -eq 0 ]
 
     local snapshot_id snapshot

@@ -294,7 +294,7 @@ main() {
     esac
 
     case "$command" in
-        init)          _need prompts yaml logging tool_resolver template_manifest paths backup init; shift; cmd_init "$@" ;;
+        init)          _need prompts yaml logging tool_resolver template_manifest paths filters file_ops manifest tmp backup adopt init; shift; cmd_init "$@" ;;
         sync)
             shift
             # --workspace fan-out: run sync in every .ai/ below cwd before

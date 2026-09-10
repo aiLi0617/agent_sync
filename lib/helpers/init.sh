@@ -62,12 +62,11 @@ _init_merge_lists() {
     echo "$out"
 }
 
-_init_collect_backup_targets() {
+# Configure the shared path/tool resolver for the project being initialized.
+_init_configure_resolver() {
     local target_dir="$1"
     local templates_dir="$2"
-    local tool_list="$3"
 
-    # Configure the shared path/tool resolver for the project being initialized.
     REPO_ROOT="$target_dir"
     # Cross-module contract: paths.sh validates destinations against this root.
     # shellcheck disable=SC2034
@@ -79,6 +78,104 @@ _init_collect_backup_targets() {
     else
         DEFAULT_REPO_ROOT="${_AGENTSYNC_ENGINE_ROOT:-$target_dir}"
     fi
+}
+
+# Print one repo-relative path per existing file under the destinations the
+# selected tools claim — the project's own agent config from before AgentSync,
+# which the first sync would otherwise replace. LC_ALL=C sorted, deduplicated.
+_init_existing_dest_files() {
+    local target_dir="$1"
+    local tool_list="$2"
+
+    local tool key raw abs file
+    for tool in $tool_list; do
+        for key in "${AGENTSYNC_TARGET_KEYS[@]}"; do
+            if [[ "$(get_tool_bool "$tool" "targets.$key.enabled")" == "false" ]]; then
+                continue
+            fi
+            get_tool_value_r "$tool" "targets.$key.dest"; raw="$REPLY"
+            [[ -n "$raw" ]] || continue
+            abs=$(resolve_dest_path "$raw" "targets.$key.dest for $tool" 2>/dev/null) || continue
+            if [[ -f "$abs" ]]; then
+                echo "${abs#"$target_dir"/}"
+            elif [[ -d "$abs" ]]; then
+                while IFS= read -r file; do
+                    [[ -n "$file" ]] || continue
+                    echo "${file#"$target_dir"/}"
+                done < <(find "$abs" -type f 2>/dev/null)
+            fi
+        done
+    done | LC_ALL=C sort -u
+}
+
+# Copy each existing destination file back into .ai/src/ so the first sync
+# regenerates the project's own content instead of the shipped templates.
+# Two destinations can map to one source (CLAUDE.md and AGENTS.md both become
+# .ai/src/AGENTS.md); the first wins and the rest are reported as skipped.
+_init_adopt_existing() {
+    local target_dir="$1"
+    local existing="$2"   # newline-separated repo-relative paths
+
+    local claimed="|" file source adopted=0 skipped=0
+    local -a skips=()
+    while IFS= read -r file; do
+        [[ -n "$file" ]] || continue
+        if source=$(AGENTSYNC_REPO_ROOT="$target_dir" adopt_file_quiet "$target_dir/$file"); then
+            if [[ "$claimed" == *"|$source|"* ]]; then
+                skips+=("$file — another file already became $source")
+                skipped=$((skipped + 1))
+                continue
+            fi
+            claimed+="$source|"
+            echo "   $(_green "Adopted") $(_cyan "$file") → $(_dim "$source")"
+            adopted=$((adopted + 1))
+        else
+            skips+=("$file — ${ADOPT_QUIET_REASON:-not an adoptable output}")
+            skipped=$((skipped + 1))
+        fi
+    done <<< "$existing"
+
+    local note
+    for note in "${skips[@]+"${skips[@]}"}"; do
+        echo "   $(_yellow "Kept as-is") $note"
+    done
+    if [[ $skipped -gt 0 ]]; then
+        echo "   $(_dim "Skipped files are regenerated from .ai/src/ — restore them with 'agentsync rollback' if needed.")"
+    fi
+    [[ $adopted -gt 0 || $skipped -gt 0 ]] && echo ""
+    return 0
+}
+
+# Write .github/workflows/agentsync-check.yml from the shipped template, with
+# the pinned version substituted. Never overwrites an existing file.
+_init_write_ci_workflow() {
+    local target_dir="$1"
+    local templates_dir="$2"
+
+    local template="$templates_dir/ci/github-agentsync-check.yml"
+    [[ -f "$template" ]] || return 0
+
+    local dest="$target_dir/.github/workflows/agentsync-check.yml"
+    if [[ -f "$dest" ]]; then
+        echo "   $(_yellow "Kept") $(_cyan ".github/workflows/agentsync-check.yml") $(_dim "(already exists)")"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "$dest")"
+    local tmp
+    tmp="$(tmp_sibling "$dest")"
+    sed -e "s|__AGENTSYNC_VERSION__|${VERSION:-unknown}|g" \
+        -e "s|__AGENTSYNC_INSTALL_URL__|https://raw.githubusercontent.com/$AGENTSYNC_REPO/main/install.sh|g" \
+        "$template" > "$tmp" && mv "$tmp" "$dest"
+    echo "   Created $(_cyan ".github/workflows/agentsync-check.yml") — CI gate (agentsync check)"
+}
+
+_init_collect_backup_targets() {
+    local target_dir="$1"
+    local templates_dir="$2"
+    local tool_list="$3"
+
+    _init_configure_resolver "$target_dir" "$templates_dir"
 
     INIT_BACKUP_TARGETS=(
         "$target_dir/.ai/src"
@@ -390,6 +487,7 @@ _init_print_summary() {
     local detect_source="$4"      # "detect" | "flag" | "mixed" | "none"
     local no_templates="${5:-false}"
     local outputs_mode="${6:-committed}"
+    local synced="${7:-false}"
 
     echo ""
     if [[ "$outputs_mode" == "committed" ]]; then
@@ -492,7 +590,11 @@ _init_print_summary() {
         echo "  $step. Run $(_cyan "agentsync enable <slug>") — add more tools"
     fi
     step=$((step + 1))
-    echo "  $step. Run $(_cyan "agentsync sync")        — distribute to enabled tools"
+    if [[ "$synced" == "true" ]] && [[ -n "$enabled_list" ]]; then
+        echo "  $step. Re-run $(_cyan "agentsync sync")     — after every change to .ai/src/"
+    else
+        echo "  $step. Run $(_cyan "agentsync sync")        — distribute to enabled tools"
+    fi
     echo ""
     echo "Customize:"
     echo "  $(_dim "•") $(_cyan "agentsync add mcp <server>")            — configure shared MCP servers"
@@ -645,6 +747,9 @@ cmd_init() {
     local no_templates=false
     local no_templates_flag_set=false
     local outputs_mode="committed"
+    local existing_action="adopt"
+    local ci_provider=""
+    local run_sync=true
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -681,6 +786,28 @@ cmd_init() {
                 ;;
             --outputs=*)
                 outputs_mode="${1#--outputs=}"
+                shift
+                ;;
+            --existing)
+                [[ $# -lt 2 ]] && { echo "$(_red "Error"): --existing requires a value" >&2; exit 1; }
+                existing_action="$2"
+                shift 2
+                ;;
+            --existing=*)
+                existing_action="${1#--existing=}"
+                shift
+                ;;
+            --ci)
+                [[ $# -lt 2 ]] && { echo "$(_red "Error"): --ci requires a value" >&2; exit 1; }
+                ci_provider="$2"
+                shift 2
+                ;;
+            --ci=*)
+                ci_provider="${1#--ci=}"
+                shift
+                ;;
+            --no-sync)
+                run_sync=false
                 shift
                 ;;
             --no-templates)
@@ -722,6 +849,13 @@ Options:
                        keeps them and .ai/.sync-manifest in git so teammates
                        need only `git pull`; `local` gitignores both and every
                        clone runs `agentsync sync`.
+  --existing <action>  What to do with tool config the project already has:
+                       `adopt` (default) copies it into .ai/src/ so the first
+                       sync reproduces it; `replace` regenerates from the
+                       shipped templates.
+  --ci <provider>      Write a CI gate that runs `agentsync check`. Only
+                       `github` is supported; an existing workflow is kept.
+  --no-sync            Skip the first `agentsync sync` at the end.
   --no-templates       Create selected content paths without copying shipped
                        starter files. AGENTS.md is empty when agents is selected.
   -y, --yes            Skip all prompts, accept defaults.
@@ -760,6 +894,20 @@ HELP
         committed|local) ;;
         *)
             echo "$(_red "Error"): --outputs must be 'committed' or 'local' (got '$outputs_mode')" >&2
+            exit 1
+            ;;
+    esac
+    case "$existing_action" in
+        adopt|replace) ;;
+        *)
+            echo "$(_red "Error"): --existing must be 'adopt' or 'replace' (got '$existing_action')" >&2
+            exit 1
+            ;;
+    esac
+    case "$ci_provider" in
+        ""|github) ;;
+        *)
+            echo "$(_red "Error"): --ci only supports 'github' (got '$ci_provider')" >&2
             exit 1
             ;;
     esac
@@ -870,6 +1018,54 @@ HELP
         }
         content_list="$picked_content"
         echo ""
+
+        echo "$(_dim "Generated files (CLAUDE.md, .claude/, .cursor/, …) can be committed, so")"
+        echo "$(_dim "teammates get current rules from git pull and never run agentsync.")"
+        if prompt_confirm "Commit generated files?" "y"; then
+            outputs_mode="committed"
+        else
+            outputs_mode="local"
+        fi
+        echo ""
+    fi
+
+    # Existing tool config has to be found before the plan is rendered, so the
+    # wizard can offer to keep it and the plan can say what happens to it.
+    _init_configure_resolver "$target_dir" "$templates_dir"
+    local existing_dests=""
+    if [[ -n "$tool_list" ]]; then
+        existing_dests=$(_init_existing_dest_files "$target_dir" "$tool_list")
+    fi
+
+    if [[ "$interactive" == "true" ]] && [[ -n "$existing_dests" ]]; then
+        local existing_count
+        existing_count=$(printf '%s\n' "$existing_dests" | grep -c . || true)
+        echo "$(_yellow "Found $existing_count existing tool config file(s)") $(_dim "— the first sync regenerates these paths:")"
+        local shown=0 line
+        while IFS= read -r line; do
+            [[ -n "$line" ]] || continue
+            shown=$((shown + 1))
+            if [[ $shown -le 10 ]]; then
+                echo "   $line"
+            fi
+        done <<< "$existing_dests"
+        [[ $existing_count -gt 10 ]] && echo "   $(_dim "… and $((existing_count - 10)) more")"
+        if prompt_confirm "Copy them into .ai/src/ first, so sync reproduces them?" "y"; then
+            existing_action="adopt"
+        else
+            existing_action="replace"
+        fi
+        echo ""
+    fi
+
+    if [[ "$interactive" == "true" ]] \
+        && [[ -z "$ci_provider" ]] \
+        && [[ "$outputs_mode" == "committed" ]] \
+        && [[ -d "$target_dir/.github" ]]; then
+        if prompt_confirm "Add a GitHub Actions gate that runs 'agentsync check'?" "y"; then
+            ci_provider="github"
+        fi
+        echo ""
     fi
 
     # Render plan. For dry-run this is the only output; interactive asks to
@@ -926,7 +1122,19 @@ HELP
         AGENTSYNC_REPO_ROOT="$target_dir" template_manifest_write
     fi
 
-    _init_print_summary "$ai_dir" "$tool_list" "$payload_lines" "$detect_source" "$no_templates" "$outputs_mode"
+    if [[ -n "$existing_dests" ]] && [[ "$existing_action" == "adopt" ]]; then
+        echo ""
+        AGENTSYNC_REPO_ROOT="$target_dir" _adopt_prepare_context
+        AGENTSYNC_REPO_ROOT="$target_dir" _adopt_discover_sources
+        _init_adopt_existing "$target_dir" "$existing_dests"
+        _init_configure_resolver "$target_dir" "$templates_dir"
+    fi
+
+    if [[ "$ci_provider" == "github" ]]; then
+        _init_write_ci_workflow "$target_dir" "$templates_dir"
+    fi
+
+    _init_print_summary "$ai_dir" "$tool_list" "$payload_lines" "$detect_source" "$no_templates" "$outputs_mode" "$run_sync"
     echo "Backup: ${INIT_BACKUP_PATH#"$target_dir"/}"
     echo ""
 
@@ -936,4 +1144,20 @@ HELP
     # The handler stays armed: INIT_TRANSACTION_ACTIVE gates the restore, and
     # leaving it in place keeps the run directory's cleanup owner defined.
     INIT_TRANSACTION_ACTIVE="false"
+
+    # First sync, so `init` leaves a project whose outputs already exist —
+    # committed mode has nothing to commit until they do. Its own transaction
+    # covers the write, so a failure here leaves .ai/ in place.
+    if [[ "$run_sync" == "true" ]] && [[ -n "$tool_list" ]] && [[ -n "$system_dir" ]]; then
+        echo "$(_bold "Running the first sync")"
+        echo ""
+        AGENTSYNC_REPO_ROOT="$target_dir" bash "$system_dir/sync.sh" || {
+            echo "$(_yellow "Warning"): first sync failed — fix the cause and run $(_cyan "agentsync sync")." >&2
+            return 0
+        }
+        if [[ "$outputs_mode" == "committed" ]]; then
+            echo "$(_bold "Commit .ai/ and the generated files") $(_dim "— teammates then need only git pull.")"
+            echo ""
+        fi
+    fi
 }
