@@ -149,13 +149,15 @@ teardown() { teardown_test_project; }
     [[ "$output" == *"outside the project"* ]]
 }
 
-@test "adopt: refuses when manifest is missing" {
+@test "adopt: works before the first sync, when nothing is tracked yet" {
     enable_tools claude
-    # No sync yet, no manifest.
+    # No sync yet, no manifest — a project's own CLAUDE.md from before AgentSync.
+    printf '# Pre-existing\n' > CLAUDE.md
 
     run env AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" adopt --yes CLAUDE.md
-    [ "$status" -ne 0 ]
-    [[ "$output" == *"manifest"* ]]
+    [ "$status" -eq 0 ]
+    grep -q "Pre-existing" .ai/src/AGENTS.md
+    [ ! -f .ai/.sync-manifest ]
 }
 
 @test "adopt: refuses untracked file (not in manifest)" {

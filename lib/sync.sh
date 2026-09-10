@@ -922,6 +922,33 @@ _collect_tool_dests() {
     done
 }
 
+# A run with no manifest cannot tell a project's own pre-AgentSync config from
+# outputs whose manifest was lost, so it warns rather than refusing: the write
+# set is already snapshotted, and `agentsync init` offers adoption up front.
+_warn_baseline_replacements() {
+    [[ "$DRY_RUN" != "true" ]] || return 0
+    [[ "$SYNC_BASELINE_INITIALIZED" == "true" ]] || return 0
+
+    local -a existing=()
+    local abs rel
+    for abs in "${SYNC_BACKUP_TARGETS[@]+"${SYNC_BACKUP_TARGETS[@]}"}"; do
+        rel=$(to_repo_relative_path "$abs")
+        if [[ -f "$abs" ]]; then
+            existing+=("$rel")
+        elif [[ -d "$abs" ]] && [[ -n "$(find "$abs" -type f 2>/dev/null | head -n 1 || true)" ]]; then
+            existing+=("$rel/")
+        fi
+    done
+    [[ ${#existing[@]} -gt 0 ]] || return 0
+
+    log_warning "First sync in this project — regenerating ${#existing[@]} path(s) that already exist:"
+    while IFS= read -r rel; do
+        echo "      $rel" >&2
+    done < <(printf '%s\n' "${existing[@]}" | LC_ALL=C sort -u)
+    echo "      Content AgentSync did not generate is replaced from .ai/src/." >&2
+    echo "      To keep a file instead, restore it with 'agentsync rollback' and run 'agentsync adopt <file>' first." >&2
+}
+
 # Refuse to overwrite destination files edited since the last sync, unless
 # --force. Skipped on dry-run. Exits non-zero when drift is found without --force.
 _check_drift_or_exit() {
@@ -1273,6 +1300,7 @@ main() {
     # shellcheck disable=SC2034
     SYNC_MANIFEST_ACTIVE="true"
 
+    _warn_baseline_replacements
     _check_drift_or_exit
     _start_sync_transaction
     _run_personal_pass

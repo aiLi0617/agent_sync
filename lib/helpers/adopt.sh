@@ -589,13 +589,20 @@ EOF
     _adopt_prepare_context
     _adopt_discover_sources
 
-    local mfile
+    # Before the first sync there is no manifest, and that is exactly when a
+    # project's pre-AgentSync CLAUDE.md needs adopting. Single-file adopt works
+    # from the tool catalog alone; --all needs the manifest to find drift.
+    local mfile has_manifest="true"
     mfile=$(manifest_path)
     if [[ ! -f "$mfile" ]]; then
-        echo "$(_red "Error"): no .ai/.sync-manifest yet — run 'agentsync sync' first." >&2
-        return 1
+        if [[ "$adopt_all" == "true" ]]; then
+            echo "$(_red "Error"): no .ai/.sync-manifest yet — run 'agentsync sync' first, or adopt one file at a time." >&2
+            return 1
+        fi
+        has_manifest="false"
+    else
+        manifest_load
     fi
-    manifest_load
 
     if [[ "$adopt_all" == "true" ]]; then
         _adopt_all "$dry_run" "$assume_yes"
@@ -608,21 +615,21 @@ EOF
         return 1
     fi
 
-    # Manifest-tracked guard.
-    if ! manifest_lookup "$_ADOPT_DEST_REL" >/dev/null; then
+    # Manifest-tracked guard. Skipped before the first sync, where nothing is
+    # tracked yet and every output predates AgentSync by definition.
+    if [[ "$has_manifest" == "true" ]] && ! manifest_lookup "$_ADOPT_DEST_REL" >/dev/null; then
         echo "$(_red "Cannot adopt"): $_ADOPT_DEST_REL is not tracked in the manifest." >&2
         echo "  AgentSync only adopts files it produced. Run sync first to register the file." >&2
         return 1
     fi
 
     # Already in sync? Nothing to do.
-    local cur_hash old_hash
+    local cur_hash
     cur_hash=$(manifest_compute_hash "$_ADOPT_DEST_ABS") || {
         echo "$(_red "Error"): cannot hash $_ADOPT_DEST_REL" >&2
         return 1
     }
-    old_hash=$(manifest_lookup "$_ADOPT_DEST_REL" || echo "")
-    if [[ "$cur_hash" == "$old_hash" ]] && [[ -f "$_ADOPT_SOURCE_ABS" ]]; then
+    if [[ -f "$_ADOPT_SOURCE_ABS" ]]; then
         local src_hash
         src_hash=$(manifest_compute_hash "$_ADOPT_SOURCE_ABS" 2>/dev/null || echo "")
         if [[ "$src_hash" == "$cur_hash" ]]; then
@@ -671,14 +678,15 @@ EOF
     ensure_dir "$(dirname "$_ADOPT_SOURCE_ABS")"
     cp "$_ADOPT_DEST_ABS" "$_ADOPT_SOURCE_ABS"
 
-    # Refresh manifest entry — the dest content is unchanged, but its hash now
-    # represents the new canonical state, so the next sync sees no drift.
-    manifest_update_entry "$_ADOPT_DEST_REL" "$cur_hash"
-
     echo ""
     _success_line() { echo "$(_green "✓") $1"; }
     _success_line "Wrote $_ADOPT_SOURCE_REL"
-    _success_line "Updated .ai/.sync-manifest"
+    if [[ "$has_manifest" == "true" ]]; then
+        # Refresh manifest entry — the dest content is unchanged, but its hash
+        # now represents the new canonical state, so the next sync sees no drift.
+        manifest_update_entry "$_ADOPT_DEST_REL" "$cur_hash"
+        _success_line "Updated .ai/.sync-manifest"
+    fi
     echo ""
     echo "$(_dim "Run") $(_cyan "agentsync sync") $(_dim "to verify everything is consistent.")"
 }
