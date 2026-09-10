@@ -20,6 +20,7 @@ jobs:
       - name: Lint shell scripts
         run: |
           shellcheck -x -S warning -e SC1091 bin/agentsync.sh
+          shellcheck -x -S warning -e SC1091 install.sh
           shellcheck -x -S warning -e SC1091 lib/sync.sh
           shellcheck -x -S warning -e SC1091 lib/check.sh
           shellcheck -x -S warning -e SC1091 lib/setup_hooks.sh

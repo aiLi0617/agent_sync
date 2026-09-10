@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
 # AgentSync Installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/yelmuratoff/agent/main/install.sh | bash
+#        AGENTSYNC_VERSION=0.35.0 curl -fsSL .../install.sh | bash   # pin a release tag
 #
 # What it does:
 #   1. Clones the AgentSync engine to ~/.agentsync/
 #   2. Creates a symlink: /usr/local/bin/agentsync.sh → ~/.agentsync/bin/agentsync.sh
+#
+# AGENTSYNC_REPO_URL, AGENTSYNC_INSTALL_DIR, and AGENTSYNC_BIN_DIR override the
+# defaults so the installer can run against a local clone in tests.
 #
 # To uninstall:
 #   rm -rf ~/.agentsync && rm -f /usr/local/bin/agentsync.sh
 
 set -euo pipefail
 
-readonly REPO_URL="https://github.com/yelmuratoff/agent.git"
-readonly INSTALL_DIR="$HOME/.agentsync"
+REPO_URL="${AGENTSYNC_REPO_URL:-https://github.com/yelmuratoff/agent.git}"
+INSTALL_DIR="${AGENTSYNC_INSTALL_DIR:-$HOME/.agentsync}"
+PIN_VERSION="${AGENTSYNC_VERSION:-}"
+readonly REPO_URL INSTALL_DIR PIN_VERSION
 readonly BIN_NAME="agentsync"
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
@@ -42,6 +48,11 @@ check_requirements() {
 
 # ─── Determine where to put the symlink ──────────────────────────────────────
 resolve_bin_dir() {
+    if [[ -n "${AGENTSYNC_BIN_DIR:-}" ]]; then
+        mkdir -p "$AGENTSYNC_BIN_DIR"
+        echo "$AGENTSYNC_BIN_DIR"
+        return 0
+    fi
     # Prefer /usr/local/bin if writable, otherwise ~/.local/bin
     if [[ -d "/usr/local/bin" ]] && [[ -w "/usr/local/bin" ]]; then
         echo "/usr/local/bin"
@@ -62,7 +73,28 @@ main() {
     check_requirements
 
     # 1. Clone or update
-    if [[ -d "$INSTALL_DIR/.git" ]]; then
+    if [[ -n "$PIN_VERSION" ]]; then
+        if [[ -d "$INSTALL_DIR/.git" ]]; then
+            echo "  Fetching releases..."
+            git -C "$INSTALL_DIR" fetch --quiet --force --tags origin 2>/dev/null || {
+                echo "  $(_yellow "Warning"): git fetch failed, re-cloning..."
+                rm -rf "$INSTALL_DIR"
+                git clone --quiet "$REPO_URL" "$INSTALL_DIR"
+            }
+        else
+            if [[ -d "$INSTALL_DIR" ]]; then
+                echo "  Cleaning up previous installation..."
+                rm -rf "$INSTALL_DIR"
+            fi
+            echo "  Cloning AgentSync..."
+            git clone --quiet "$REPO_URL" "$INSTALL_DIR"
+        fi
+        echo "  Pinning to $(_cyan "v$PIN_VERSION")..."
+        git -C "$INSTALL_DIR" checkout --quiet --detach "refs/tags/$PIN_VERSION" 2>/dev/null || {
+            echo "$(_red "Error"): No AgentSync release is tagged $PIN_VERSION." >&2
+            exit 1
+        }
+    elif [[ -d "$INSTALL_DIR/.git" ]]; then
         echo "  Updating existing installation..."
         (cd "$INSTALL_DIR" && git pull --quiet origin main 2>/dev/null) || {
             echo "  $(_yellow "Warning"): git pull failed, re-cloning..."

@@ -127,7 +127,7 @@ print_usage() {
     echo "    $(_cyan "export")         Bundle .ai/src/ into a shareable archive"
     echo "    $(_cyan "import")         Import config from GitHub, archive, or directory"
     echo "    $(_cyan "refresh")        Pull new template files into existing .ai/src/"
-    echo "    $(_cyan "update")         Update AgentSync to the latest version"
+    echo "    $(_cyan "update")         Update AgentSync to the latest version, or pin one: update <version>"
     echo "    $(_cyan "upgrade-config") Re-pin agentsync_version in agent_sync.yaml"
     echo "    $(_cyan "release")        Bump version, tag, and push (maintainer)"
     echo "    $(_cyan "version")        Print version"

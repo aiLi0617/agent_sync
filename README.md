@@ -97,6 +97,12 @@ Requirements: `git`, `bash`. Works on **macOS** and **Linux** out of the box. On
 curl -fsSL https://raw.githubusercontent.com/yelmuratoff/agent/main/install.sh | bash
 ```
 
+To install the exact release a project pins in `agentsync_version` — what CI should do when outputs are committed — set `AGENTSYNC_VERSION`; the same variable moves an existing install, and `agentsync update <version>` does it from the CLI:
+
+```bash
+AGENTSYNC_VERSION=0.35.0 curl -fsSL https://raw.githubusercontent.com/yelmuratoff/agent/main/install.sh | bash
+```
+
 What the installer does:
 
 1. Clones the repository to `~/.agentsync/`
@@ -209,7 +215,7 @@ agentsync <command> [options]
 | `export`                 |       | Bundle `.ai/src/` into a shareable archive                                                      |
 | `import <src>`           |       | Import config from a GitHub repo, archive, or directory                                         |
 | `list`                   | `ls`  | Show configured tools and status                                                               |
-| `update`                 |       | Self-update via git pull (runs a background update check on each interactive command)          |
+| `update`                 |       | Self-update to the latest main, or `update <version>` to pin a release tag                     |
 | `upgrade-config`         |       | Re-pin `agentsync_version` in `agent_sync.yaml`                                                 |
 | `release`                |       | Bump version, tag, and push (maintainer)                                                        |
 | `version`                | `-v`  | Print version                                                                                  |
@@ -455,6 +461,8 @@ agentsync check              # verify outputs match source (exit 0/1, CI gate)
 | `local`                 | `.ai/src/` only                                      | Every clone, after every pull (`setup-hooks`)        |
 
 In both modes `agentsync sync` manages a block in `.gitignore` between `AI SYNC GENERATED START/END` markers: `local` lists every generated path and the manifest, `committed` lists only profile config homes, which are personal in either mode. The manifest always shares the git status of the outputs it describes — that is what keeps a teammate's `git pull` from looking like a manual edit. A project without an `outputs:` key behaves as `local`, or as `committed` when it already set `gitignore.update: false`.
+
+`agentsync_version` in `agent_sync.yaml` pins the engine. With committed outputs every machine and CI must generate byte-identical files, so `sync` and `check` stop when the running version differs from the pin: match it with `agentsync update <version>` (or `AGENTSYNC_VERSION=<version>` on the installer), or move the pin with `agentsync upgrade-config` and commit the re-synced outputs. In `local` mode the mismatch is a warning.
 
 ## How Sync Works
 

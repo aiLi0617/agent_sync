@@ -20,6 +20,35 @@ MANIFEST_REL=".ai/.sync-manifest"
 
 # shellcheck source=helpers/tmp.sh
 source "$SCRIPT_DIR/helpers/tmp.sh"
+# shellcheck source=helpers/yaml.sh
+source "$SCRIPT_DIR/helpers/yaml.sh"
+# shellcheck source=helpers/version.sh
+source "$SCRIPT_DIR/helpers/version.sh"
+
+# Same gate as sync, checked up front so CI reports the pin rather than a
+# "sync failed inside check" wrapper. Only committed outputs make it fatal:
+# there, every machine must generate byte-identical files.
+_check_version_pin() {
+    local config="$REPO_ROOT/.ai/agent_sync.yaml"
+    [[ -f "$config" ]] || config="$REPO_ROOT/agent_sync.yaml"
+    [[ -f "$config" ]] || return 0
+
+    local outputs
+    outputs=$(parse_yaml_value "$config" "outputs")
+    outputs="${outputs//\"/}"
+    [[ "$outputs" == "committed" ]] || return 0
+
+    local pinned engine
+    pinned=$(pinned_version "$config")
+    [[ -n "$pinned" ]] || return 0
+    engine=$(engine_version "$SCRIPT_DIR")
+    [[ "$pinned" != "$engine" ]] || return 0
+
+    echo "❌ This project pins agentsync $pinned but you are running $engine — committed outputs must come from one version everywhere." >&2
+    version_pin_mismatch_hint "$pinned" "$engine" >&2
+    exit 1
+}
+_check_version_pin
 
 # shellcheck disable=SC2329  # invoked through the EXIT trap below
 _check_on_exit() {

@@ -26,6 +26,8 @@ source "$SCRIPT_DIR/helpers/logging.sh"
 source "$SCRIPT_DIR/helpers/tmp.sh"
 # shellcheck source=helpers/yaml.sh
 source "$SCRIPT_DIR/helpers/yaml.sh"
+# shellcheck source=helpers/version.sh
+source "$SCRIPT_DIR/helpers/version.sh"
 # shellcheck source=helpers/paths.sh
 source "$SCRIPT_DIR/helpers/paths.sh"
 # shellcheck source=helpers/filters.sh
@@ -780,6 +782,23 @@ _load_run_config() {
     esac
 }
 
+_check_version_pin_or_exit() {
+    [[ -n "$PROJECT_CONFIG_PATH" ]] || return 0
+    local pinned engine
+    pinned=$(pinned_version "$PROJECT_CONFIG_PATH")
+    [[ -n "$pinned" ]] || return 0
+    engine=$(engine_version "$SCRIPT_DIR")
+    [[ "$pinned" != "$engine" ]] || return 0
+
+    if [[ "$OUTPUTS_MODE" == "committed" ]]; then
+        log_error "This project pins agentsync $pinned but you are running $engine — committed outputs must come from one version everywhere."
+        version_pin_mismatch_hint "$pinned" "$engine" >&2
+        exit 1
+    fi
+    log_warning "This project pins agentsync $pinned but you are running $engine."
+    version_pin_mismatch_hint "$pinned" "$engine"
+}
+
 # Echo the first existing source candidate for <subpath>, preferring the
 # .ai/src/ layout over a flat .ai/ one. <kind> is `file` or `dir`. Empty if none.
 _detect_source() {
@@ -1233,6 +1252,7 @@ main() {
         return 0
     fi
 
+    _check_version_pin_or_exit
     _print_banner
 
     # `shared:` overlay — must run AFTER child SOURCE_* resolution so child files

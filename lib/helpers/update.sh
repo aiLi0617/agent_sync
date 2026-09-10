@@ -28,6 +28,24 @@ _update_reconcile_install() {
     )
 }
 
+# Pin the install to a release tag on a detached HEAD. Local edits are set aside
+# exactly as _update_reconcile_install does; echoes "stashed" when that happened.
+# Usage: _update_checkout_version "<install_dir>" "<version>"
+_update_checkout_version() {
+    local dir="$1"
+    local version="$2"
+    (
+        cd "$dir" || exit 1
+        local stashed=false
+        if [[ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]]; then
+            git stash push --quiet -m "agentsync-update-autostash" 2>/dev/null && stashed=true
+        fi
+        git checkout --quiet --detach "refs/tags/$version" 2>/dev/null || exit 1
+        [[ "$stashed" == "true" ]] && echo "stashed"
+        exit 0
+    )
+}
+
 # `--force` on the tag fetch is load-bearing: the install mirrors upstream and
 # never owns tags, so when a release tag is moved upstream a plain `--tags` fetch
 # rejects it as "would clobber existing tag" and aborts the whole update. On
@@ -43,20 +61,31 @@ _update_fetch() {
 
 cmd_update() {
     local strict=false
+    local target_version=""
     local arg
     for arg in "$@"; do
         case "$arg" in
             --strict) strict=true ;;
             --help|-h)
-                echo "Usage: agentsync update [--strict]"
+                echo "Usage: agentsync update [<version>] [--strict]"
                 echo ""
+                echo "  <version>   Pin the install to that release tag (e.g. 0.35.0) instead of"
+                echo "              the latest main — what a project's agentsync_version asks for."
                 echo "  --strict    Exit non-zero if upstream changed a field you have overridden."
                 return 0
                 ;;
-            *)
+            -*)
                 echo "$(_red "Error"): Unknown flag: $arg" >&2
-                echo "Usage: agentsync update [--strict]" >&2
+                echo "Usage: agentsync update [<version>] [--strict]" >&2
                 exit 2
+                ;;
+            *)
+                if [[ -n "$target_version" ]]; then
+                    echo "$(_red "Error"): Unexpected argument: $arg" >&2
+                    echo "Usage: agentsync update [<version>] [--strict]" >&2
+                    exit 2
+                fi
+                target_version="$arg"
                 ;;
         esac
     done
@@ -96,7 +125,15 @@ cmd_update() {
 
     local local_head remote_head
     local_head=$(git rev-parse HEAD)
-    remote_head=$(git rev-parse origin/main)
+    if [[ -n "$target_version" ]]; then
+        remote_head=$(git rev-parse -q --verify "refs/tags/${target_version}^{commit}" 2>/dev/null) || {
+            echo "  $(_red "Error"): No AgentSync release is tagged $target_version." >&2
+            echo "  $(_dim "List releases with") $(_cyan "git -C \"$install_dir\" tag --sort=-v:refname")" >&2
+            exit 1
+        }
+    else
+        remote_head=$(git rev-parse origin/main)
+    fi
 
     if [[ "$local_head" == "$remote_head" ]]; then
         echo "  $(_green "Already up to date!") (v${VERSION})"
@@ -111,12 +148,20 @@ cmd_update() {
     snapshot_save "$install_dir" "$snapshot_dir" || true
     _tmp_record_stray "$snapshot_dir"
 
-    echo "  Updating..."
     local reconcile_out
-    if ! reconcile_out=$(_update_reconcile_install "$install_dir"); then
-        echo "  $(_red "Error"): could not reconcile the install at $install_dir. Try reinstalling:" >&2
-        echo "    curl -fsSL https://raw.githubusercontent.com/$AGENTSYNC_REPO/main/install.sh | bash" >&2
-        exit 1
+    if [[ -n "$target_version" ]]; then
+        echo "  Pinning to v${target_version}..."
+        reconcile_out=$(_update_checkout_version "$install_dir" "$target_version") || {
+            echo "  $(_red "Error"): could not check out v${target_version} at $install_dir." >&2
+            exit 1
+        }
+    else
+        echo "  Updating..."
+        if ! reconcile_out=$(_update_reconcile_install "$install_dir"); then
+            echo "  $(_red "Error"): could not reconcile the install at $install_dir. Try reinstalling:" >&2
+            echo "    curl -fsSL https://raw.githubusercontent.com/$AGENTSYNC_REPO/main/install.sh | bash" >&2
+            exit 1
+        fi
     fi
 
     # Re-link CLI binary (handles renames across versions)
@@ -126,7 +171,8 @@ cmd_update() {
         local current_bin
         current_bin=$(command -v agentsync 2>/dev/null) || true
         if [[ -n "$current_bin" ]] && [[ -L "$current_bin" ]]; then
-            ln -sf "$cli_script" "$current_bin"
+            ln -sf "$cli_script" "$current_bin" 2>/dev/null \
+                || echo "  $(_yellow "Warning"): could not re-link $current_bin — run the installer to repair it." >&2
         fi
     fi
 
