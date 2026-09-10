@@ -98,6 +98,8 @@ SOURCE_SUBAGENTS=""
 DEFAULT_ENABLED="false"
 DEFAULT_CLEANUP="true"
 UPDATE_GITIGNORE="true"
+# committed: outputs and the manifest stay visible to git; local: both ignored.
+OUTPUTS_MODE="local"
 
 # Paths claimed by enabled tools — cleanup must not delete these
 declare -a ENABLED_DEST_PATHS=()
@@ -105,6 +107,8 @@ declare -a ENABLED_DEST_PATHS=()
 declare -a LAST_COLLECTED_DESTS=()
 # Repo-relative dest paths fed to .gitignore (dirs carry a trailing slash)
 declare -a GENERATED_GITIGNORE_PATHS=()
+# Profile config homes are personal and stay gitignored in every outputs mode.
+declare -a PROFILE_GITIGNORE_PATHS=()
 
 # Transaction state for restoring every path a real sync may mutate.
 declare -a SYNC_BACKUP_TARGETS=()
@@ -758,6 +762,22 @@ _load_run_config() {
     if [[ "$cfg_update_gitignore" == "false" ]]; then
         UPDATE_GITIGNORE="false"
     fi
+
+    local cfg_outputs
+    cfg_outputs=$(parse_yaml_value "$PROJECT_CONFIG_PATH" "outputs")
+    cfg_outputs="${cfg_outputs//\"/}"
+    case "$cfg_outputs" in
+        committed|local) OUTPUTS_MODE="$cfg_outputs" ;;
+        "")
+            if [[ "$UPDATE_GITIGNORE" == "false" ]]; then
+                OUTPUTS_MODE="committed"
+            fi
+            ;;
+        *)
+            log_error "Unknown outputs mode '$cfg_outputs' in ${PROJECT_CONFIG_PATH#"$REPO_ROOT/"} — expected 'committed' or 'local'"
+            exit 1
+            ;;
+    esac
 }
 
 # Echo the first existing source candidate for <subpath>, preferring the
@@ -857,10 +877,12 @@ _sync_is_stale() {
 }
 
 # Append a tool's resolved dest paths to ENABLED_DEST_PATHS (cleanup protection)
-# and GENERATED_GITIGNORE_PATHS (gitignore payload). Directory-type targets get a
-# trailing slash so .gitignore matches the whole tree.
+# and to the gitignore payload — GENERATED_GITIGNORE_PATHS, or
+# PROFILE_GITIGNORE_PATHS when <scope> is "profile". Directory-type targets get
+# a trailing slash so .gitignore matches the whole tree.
 _collect_tool_dests() {
     local tool_name="$1"
+    local scope="${2:-personal}"
     local key raw abs rel
     LAST_COLLECTED_DESTS=()
     for key in "${AGENTSYNC_TARGET_KEYS[@]}"; do
@@ -871,9 +893,13 @@ _collect_tool_dests() {
         LAST_COLLECTED_DESTS+=("$abs")
         rel=$(to_repo_relative_path "$abs")
         case "$key" in
-            rules|skills|commands|subagents) GENERATED_GITIGNORE_PATHS+=("$rel/") ;;
-            *) GENERATED_GITIGNORE_PATHS+=("$rel") ;;
+            rules|skills|commands|subagents) rel="$rel/" ;;
         esac
+        if [[ "$scope" == "profile" ]]; then
+            PROFILE_GITIGNORE_PATHS+=("$rel")
+        else
+            GENERATED_GITIGNORE_PATHS+=("$rel")
+        fi
     done
 }
 
@@ -993,7 +1019,7 @@ _collect_protected_dests() {
     local _pt
     while IFS= read -r _pt; do
         [[ -z "$_pt" ]] && continue
-        _collect_tool_dests "$_pt"
+        _collect_tool_dests "$_pt" profile
         if [[ "$selected_profile_tools" == *"|$_pt|"* ]] && should_sync_tool "$_pt"; then
             SYNC_BACKUP_TARGETS+=("${LAST_COLLECTED_DESTS[@]+"${LAST_COLLECTED_DESTS[@]}"}")
         fi
@@ -1145,13 +1171,20 @@ _run_profile_passes() {
 
 _finalize_run() {
     if [[ "$DRY_RUN" != "true" ]] && [[ "$UPDATE_GITIGNORE" == "true" ]]; then
-        log_separator
-        log_info "Updating .gitignore..."
+        local -a ignored=("${PROFILE_GITIGNORE_PATHS[@]+"${PROFILE_GITIGNORE_PATHS[@]}"}")
         # The manifest must share the outputs' git status; see tests/team_workflow.bats.
-        GENERATED_GITIGNORE_PATHS+=(".ai/.sync-manifest")
-        local generated_paths_payload
-        generated_paths_payload=$(printf '%s\n' "${GENERATED_GITIGNORE_PATHS[@]}")
-        update_gitignore "$REPO_ROOT/.gitignore" "$generated_paths_payload"
+        if [[ "$OUTPUTS_MODE" != "committed" ]]; then
+            ignored+=("${GENERATED_GITIGNORE_PATHS[@]+"${GENERATED_GITIGNORE_PATHS[@]}"}" ".ai/.sync-manifest")
+        fi
+        local generated_paths_payload=""
+        if [[ ${#ignored[@]} -gt 0 ]]; then
+            generated_paths_payload=$(printf '%s\n' "${ignored[@]}")
+        fi
+        if [[ -n "$generated_paths_payload" ]] || gitignore_has_managed_block "$REPO_ROOT/.gitignore"; then
+            log_separator
+            log_info "Updating .gitignore..."
+            update_gitignore "$REPO_ROOT/.gitignore" "$generated_paths_payload"
+        fi
     fi
 
     [[ "$DRY_RUN" != "true" ]] && manifest_write

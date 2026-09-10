@@ -2,16 +2,25 @@
 # Helper to update .gitignore with generated paths
 # Only touches content between specific markers
 
+_GITIGNORE_START_MARKER="# --- AI SYNC GENERATED START ---"
+_GITIGNORE_END_MARKER="# --- AI SYNC GENERATED END ---"
+
+# True (0) when the file already carries a managed block.
+# Usage: gitignore_has_managed_block "path/to/.gitignore"
+gitignore_has_managed_block() {
+    local gitignore_file="$1"
+    [[ -f "$gitignore_file" ]] && grep -qF "$_GITIGNORE_START_MARKER" "$gitignore_file"
+}
+
 # Update .gitignore with a list of paths
 # Usage: update_gitignore "path/to/.gitignore" "$(printf '%s\n' 'path1' 'path with spaces/path2')"
 update_gitignore() {
     local gitignore_file="$1"
     local paths_string="$2"
-    
-    # Define markers
-    local start_marker="# --- AI SYNC GENERATED START ---"
-    local end_marker="# --- AI SYNC GENERATED END ---"
-    
+
+    local start_marker="$_GITIGNORE_START_MARKER"
+    local end_marker="$_GITIGNORE_END_MARKER"
+
     # Ensure .gitignore exists
     if [[ ! -f "$gitignore_file" ]]; then
         touch "$gitignore_file"

@@ -15,7 +15,7 @@ setup_file() {
 
     # Init + full sync once. Minimal init; sync falls back to base templates
     # for hooks/mcp/settings when project overrides are absent (Phase 2).
-    AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" init
+    AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" init --outputs local
     echo "node_modules/" > .gitignore
 
     # Tests assert sync output for these tools — enable explicitly.

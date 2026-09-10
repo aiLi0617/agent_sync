@@ -313,6 +313,7 @@ _init_detect_enabled_tools() {
 _init_create_project_config() {
     local target_dir="$1"
     local enabled_list="$2"  # newline-separated tool names (may be empty)
+    local outputs_mode="$3"  # committed | local
     local config_file="$target_dir/.ai/agent_sync.yaml"
 
     if [[ -f "$config_file" ]] || [[ -f "$target_dir/agent_sync.yaml" ]]; then
@@ -366,7 +367,16 @@ defaults:
 post_sync:
   skip: false
 
-# .gitignore management.
+# Where generated tool files live.
+#   committed — outputs and .ai/.sync-manifest are committed; teammates get
+#               them from `git pull` and CI runs `agentsync check`.
+#   local     — outputs and the manifest are gitignored; every clone runs
+#               `agentsync sync` (see `agentsync setup-hooks`).
+TAIL
+        echo "outputs: $outputs_mode"
+        cat << 'TAIL'
+
+# .gitignore management (false leaves the managed block untouched).
 gitignore:
   update: true
 TAIL
@@ -379,9 +389,14 @@ _init_print_summary() {
     local payload_lines="$3"      # newline-separated "resource/file.ext" (or empty)
     local detect_source="$4"      # "detect" | "flag" | "mixed" | "none"
     local no_templates="${5:-false}"
+    local outputs_mode="${6:-committed}"
 
     echo ""
-    echo "   Created $(_cyan ".ai/agent_sync.yaml")     — project config"
+    if [[ "$outputs_mode" == "committed" ]]; then
+        echo "   Created $(_cyan ".ai/agent_sync.yaml")     — project config (outputs: committed — teammates need only git pull)"
+    else
+        echo "   Created $(_cyan ".ai/agent_sync.yaml")     — project config (outputs: local — every clone runs agentsync sync)"
+    fi
 
     if [[ -f "$ai_dir/src/AGENTS.md" ]]; then
         if [[ "$no_templates" == "true" ]] && [[ ! -s "$ai_dir/src/AGENTS.md" ]]; then
@@ -629,6 +644,7 @@ cmd_init() {
     local content_flag_set=false
     local no_templates=false
     local no_templates_flag_set=false
+    local outputs_mode="committed"
 
     while [[ $# -gt 0 ]]; do
         case "$1" in
@@ -656,6 +672,15 @@ cmd_init() {
                 ;;
             --no-detect)
                 no_detect=true
+                shift
+                ;;
+            --outputs)
+                [[ $# -lt 2 ]] && { echo "$(_red "Error"): --outputs requires a value" >&2; exit 1; }
+                outputs_mode="$2"
+                shift 2
+                ;;
+            --outputs=*)
+                outputs_mode="${1#--outputs=}"
                 shift
                 ;;
             --no-templates)
@@ -693,6 +718,10 @@ Options:
                        agents, rules, skills, commands, subagents.
                        Default: all of them.
   --no-detect          Skip filesystem marker auto-detection (tools only).
+  --outputs <mode>     Where generated tool files live. `committed` (default)
+                       keeps them and .ai/.sync-manifest in git so teammates
+                       need only `git pull`; `local` gitignores both and every
+                       clone runs `agentsync sync`.
   --no-templates       Create selected content paths without copying shipped
                        starter files. AGENTS.md is empty when agents is selected.
   -y, --yes            Skip all prompts, accept defaults.
@@ -726,6 +755,14 @@ HELP
                 ;;
         esac
     done
+
+    case "$outputs_mode" in
+        committed|local) ;;
+        *)
+            echo "$(_red "Error"): --outputs must be 'committed' or 'local' (got '$outputs_mode')" >&2
+            exit 1
+            ;;
+    esac
 
     target_dir="${target_dir:-.}"
     target_dir="$(cd "$target_dir" 2>/dev/null && pwd)" || {
@@ -879,7 +916,7 @@ HELP
     local enabled_newline
     enabled_newline=$(echo "$tool_list" | tr ' ' '\n' | sed '/^$/d')
 
-    _init_create_project_config "$target_dir" "$enabled_newline"
+    _init_create_project_config "$target_dir" "$enabled_newline" "$outputs_mode"
 
     # Baseline the template manifest so the next `agentsync refresh` can do
     # three-way diffs and only nag on real conflicts.
@@ -889,7 +926,7 @@ HELP
         AGENTSYNC_REPO_ROOT="$target_dir" template_manifest_write
     fi
 
-    _init_print_summary "$ai_dir" "$tool_list" "$payload_lines" "$detect_source" "$no_templates"
+    _init_print_summary "$ai_dir" "$tool_list" "$payload_lines" "$detect_source" "$no_templates" "$outputs_mode"
     echo "Backup: ${INIT_BACKUP_PATH#"$target_dir"/}"
     echo ""
 

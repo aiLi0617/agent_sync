@@ -445,9 +445,16 @@ agentsync check              # verify outputs match source (exit 0/1, CI gate)
 
 `--if-stale` is the cheap probe the shell and pre-commit hooks build on; `check` is the authoritative drift gate for CI.
 
-## Gitignore
+## Where generated files live
 
-`agentsync sync` auto-manages a block in `.gitignore` between `AI SYNC GENERATED START/END` markers. Generated files are gitignored — only `.ai/src/` needs to be committed.
+`outputs:` in `.ai/agent_sync.yaml` decides whether generated tool files are committed or regenerated on every machine. `agentsync init` writes `committed`; pass `--outputs local` to choose the other mode.
+
+| Mode                    | In git                                               | Who runs `agentsync`                                 |
+| ----------------------- | ---------------------------------------------------- | ---------------------------------------------------- |
+| `committed` *(default)* | `.ai/src/`, generated outputs, `.ai/.sync-manifest`  | Whoever edits `.ai/src/` (`sync`), plus CI (`check`) |
+| `local`                 | `.ai/src/` only                                      | Every clone, after every pull (`setup-hooks`)        |
+
+In both modes `agentsync sync` manages a block in `.gitignore` between `AI SYNC GENERATED START/END` markers: `local` lists every generated path and the manifest, `committed` lists only profile config homes, which are personal in either mode. The manifest always shares the git status of the outputs it describes — that is what keeps a teammate's `git pull` from looking like a manual edit. A project without an `outputs:` key behaves as `local`, or as `committed` when it already set `gitignore.update: false`.
 
 ## How Sync Works
 
@@ -561,6 +568,8 @@ available, the prompt is still printed to stdout.
 Create `agent_sync.yaml` in the project root to override source paths:
 
 ```yaml
+outputs: committed # or local — see "Where generated files live"
+
 source:
   agents: ".ai/src/AGENTS.md"
   rules: ".ai/src/rules"
