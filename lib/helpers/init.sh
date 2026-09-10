@@ -145,7 +145,7 @@ _init_create_directories() {
     _init_list_contains "commands"  "$content_list" && mkdir -p "$ai_dir/src/commands"
     _init_list_contains "subagents" "$content_list" && mkdir -p "$ai_dir/src/agents"
     # tools/ intentionally NOT created — created on demand by `customize`.
-    # settings/, mcp/, hooks/ are created on demand by `_init_copy_tool_payloads`
+    # tools/<tool>/ payload overrides are created on demand by `_init_copy_tool_payloads`
     # only for tools that are enabled.
     return 0
 }
@@ -244,7 +244,8 @@ RULE_EOF
 # a shared source, or `agentsync customize <tool> mcp` for a per-tool override.
 #
 # Creates destination directories lazily (only when a file is actually copied).
-# Returns 0 always. Prints one "<resource>/<file>" path per scaffold to stdout.
+# Returns 0 always. Prints one "tools/<tool>/<resource>.<ext>" path per scaffold
+# to stdout — the per-tool layout the resolver treats as canonical.
 _init_copy_tool_payloads() {
     local ai_dir="$1"
     local templates_dir="$2"
@@ -259,10 +260,10 @@ _init_copy_tool_payloads() {
         for tool in $tool_list; do
             for src_file in "$templates_dir/$resource/$tool".*; do
                 [[ -f "$src_file" ]] || continue
-                dest_dir="$ai_dir/src/$resource"
+                dest_dir="$ai_dir/src/tools/$tool"
                 mkdir -p "$dest_dir"
-                cp "$src_file" "$dest_dir/"
-                echo "$resource/$(basename "$src_file")"
+                cp "$src_file" "$dest_dir/$resource.${src_file##*.}"
+                echo "tools/$tool/$resource.${src_file##*.}"
             done
         done
     done
@@ -431,24 +432,11 @@ _init_print_summary() {
     fi
 
     if [[ -n "$payload_lines" ]]; then
-        local resource count_settings=0 count_mcp=0 count_hooks=0 line
+        local line
         while IFS= read -r line; do
             [[ -z "$line" ]] && continue
-            resource="${line%%/*}"
-            case "$resource" in
-                settings) count_settings=$((count_settings + 1)) ;;
-                mcp)      count_mcp=$((count_mcp + 1)) ;;
-                hooks)    count_hooks=$((count_hooks + 1)) ;;
-            esac
+            echo "   Created $(_cyan ".ai/src/$line")"
         done <<< "$payload_lines"
-
-        local settings_path="/settings/" mcp_path="/mcp/" hooks_path="/hooks/"
-        [[ $count_settings -gt 0 ]] && \
-            echo "   Created $(_cyan ".ai/src${settings_path}")      — $count_settings tool settings file(s)"
-        [[ $count_mcp -gt 0 ]] && \
-            echo "   Created $(_cyan ".ai/src${mcp_path}")           — $count_mcp tool MCP file(s)"
-        [[ $count_hooks -gt 0 ]] && \
-            echo "   Created $(_cyan ".ai/src${hooks_path}")         — $count_hooks tool hooks file(s)"
     fi
 
     echo ""

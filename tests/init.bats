@@ -35,11 +35,22 @@ teardown() {
 
     # Claude has settings + hooks (none) templates; MCP is excluded in 0.11+
     # because it resolves via shared .ai/src/mcp.json (or base).
-    [ -f ".ai/src/settings/claude.json" ]
+    [ -f ".ai/src/tools/claude/settings.json" ]
+    [ ! -d ".ai/src/settings" ]
     [ ! -d ".ai/src/mcp" ]
     [ ! -d ".ai/src/hooks" ]
     # No cursor leakage.
-    [ ! -f ".ai/src/settings/cursor.json" ]
+    [ ! -d ".ai/src/tools/cursor" ]
+}
+
+@test "init --tools claude payloads land in the layout sync treats as canonical" {
+    run run_agentsync init --tools claude
+    [ "$status" -eq 0 ]
+    [[ "$output" == *".ai/src/tools/claude/settings.json"* ]]
+
+    run run_agentsync sync
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Legacy payload override layout"* ]]
 }
 
 @test "init: refuses to run from inside .ai/" {
