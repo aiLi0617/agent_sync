@@ -649,7 +649,7 @@ The transaction covers declared tool destinations plus `.ai/.sync-manifest` and 
 
 ### Drift detection
 
-After every successful sync, AgentSync writes `.ai/.sync-manifest` — one line per generated file with its SHA-256 hash. **Commit it to git.** On the next sync, every destination is compared against the manifest:
+After every successful sync, AgentSync writes `.ai/.sync-manifest` — one line per generated file with its SHA-256 hash. It records what *this clone* generated, so sync adds it to the managed `.gitignore` block next to the outputs it describes: a committed manifest beside ignored outputs would make every teammate's next sync read a `git pull` as manual edits. On the next sync, every destination is compared against the manifest:
 
 - File untouched → sync rewrites silently (idempotent).
 - File deleted manually → sync rewrites silently.
@@ -664,7 +664,7 @@ After every successful sync, AgentSync writes `.ai/.sync-manifest` — one line 
     • Re-run with --force to discard the edits and rewrite from source
 ```
 
-`agentsync check` and `agentsync doctor` both surface drift, so CI catches a forgotten manifest commit before merge.
+`agentsync check` and `agentsync doctor` both surface drift, so a stale or hand-edited clone is visible before the edit is lost.
 
 ### `agentsync adopt` — promote an IDE edit back into source
 

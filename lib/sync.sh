@@ -1147,10 +1147,10 @@ _finalize_run() {
     if [[ "$DRY_RUN" != "true" ]] && [[ "$UPDATE_GITIGNORE" == "true" ]]; then
         log_separator
         log_info "Updating .gitignore..."
-        local generated_paths_payload=""
-        if [[ ${#GENERATED_GITIGNORE_PATHS[@]} -gt 0 ]]; then
-            generated_paths_payload=$(printf '%s\n' "${GENERATED_GITIGNORE_PATHS[@]}")
-        fi
+        # The manifest must share the outputs' git status; see tests/team_workflow.bats.
+        GENERATED_GITIGNORE_PATHS+=(".ai/.sync-manifest")
+        local generated_paths_payload
+        generated_paths_payload=$(printf '%s\n' "${GENERATED_GITIGNORE_PATHS[@]}")
         update_gitignore "$REPO_ROOT/.gitignore" "$generated_paths_payload"
     fi
 
