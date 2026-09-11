@@ -26,5 +26,8 @@ targets:
     dest: ".mcp.json"
 
   # Blocks edits to generated files; wired up by hooks.PreToolUse in settings.
+  # Not profile-scoped: settings reference it through ${CLAUDE_PROJECT_DIR}, so
+  # every config home shares this one script instead of getting a dead copy.
   guard:
     dest: ".claude/hooks/agentsync-guard.sh"
+    profile_scoped: false

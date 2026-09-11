@@ -61,13 +61,16 @@ EOF
 }
 
 # Emit the `targets:` block for a variant: every base resource that declares a
-# dest, rewritten into the config-home layout. Echoes nothing if the base
-# declares no dests (e.g. an unknown tool).
+# dest, rewritten into the config-home layout. A target marked
+# `profile_scoped: false` keeps the base dest — it is project-level content that
+# every config home shares, such as a helper script referenced by an absolute
+# path from settings. Echoes nothing if the base declares no dests (e.g. an
+# unknown tool).
 _profile_variant_targets() {
     local base_tool="$1"
     local home="$2"
     local emitted=false
-    local key raw rewritten
+    local key raw dest
     for key in "${AGENTSYNC_TARGET_KEYS[@]}"; do
         raw=$(get_tool_value "$base_tool" "targets.$key.dest")
         [[ -z "$raw" ]] && continue
@@ -75,8 +78,12 @@ _profile_variant_targets() {
             printf 'targets:\n'
             emitted=true
         fi
-        rewritten=$(profile_rewrite_dest "$raw" "$home")
-        printf '  %s:\n    dest: "%s"\n' "$key" "$rewritten"
+        if [[ "$(get_tool_bool "$base_tool" "targets.$key.profile_scoped")" == "false" ]]; then
+            dest="$raw"
+        else
+            dest=$(profile_rewrite_dest "$raw" "$home")
+        fi
+        printf '  %s:\n    dest: "%s"\n' "$key" "$dest"
     done
 }
 

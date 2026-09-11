@@ -927,7 +927,10 @@ _collect_tool_dests() {
         case "$key" in
             rules|skills|commands|subagents) rel="$rel/" ;;
         esac
-        if [[ "$scope" == "profile" ]]; then
+        # A target a profile does not scope is shared project content, not the
+        # profile's personal config home, so it follows the outputs mode.
+        if [[ "$scope" == "profile" ]] && \
+           [[ "$(get_tool_bool "$tool_name" "targets.$key.profile_scoped")" != "false" ]]; then
             PROFILE_GITIGNORE_PATHS+=("$rel")
         else
             GENERATED_GITIGNORE_PATHS+=("$rel")

@@ -295,7 +295,7 @@ Two layers, and the difference decides whether an upgrade reaches you:
 Three layers keep an agent (and a person) editing the source instead of the output:
 
 1. The shipped `AGENTS.md` and `rules/core.md` say where instructions live, so it is in context every session.
-2. Claude Code gets a generated `PreToolUse` hook at `.claude/hooks/agentsync-guard.sh`, wired up by `hooks.PreToolUse` in the base settings. It checks the target path against `.ai/.sync-manifest` and exits 2 — blocking the write — with the source path to edit instead. Override it per project at `.ai/src/tools/claude/guard.sh`, or drop the `hooks` block from your settings override to remove it.
+2. Claude Code gets a generated `PreToolUse` hook at `.claude/hooks/agentsync-guard.sh`, wired up by `hooks.PreToolUse` in the base settings. It checks the target path against `.ai/.sync-manifest` and exits 2 — blocking the write — with the source path to edit instead. Override it per project at `.ai/src/tools/claude/guard.sh`, or drop the `hooks` block from your settings override to remove it. The target declares `profile_scoped: false`, so config-home profiles share this one script rather than each getting a copy nothing invokes; `agentsync doctor` warns when a settings override never references it.
 3. `agentsync sync` refuses to overwrite a generated file that changed since the last sync, and `agentsync adopt <file>` promotes such an edit back into `.ai/src/`.
 
 ## Gotchas

@@ -100,6 +100,33 @@ guard_for() {
     [[ "$output" != *"inert"* ]]
 }
 
+@test "guard: a config-home profile shares the one script, no dead copy" {
+    run_agentsync profile add hub --tools claude >/dev/null 2>&1
+    run_agentsync sync --force >/dev/null 2>&1
+
+    # The profile's settings reference ${CLAUDE_PROJECT_DIR}/.claude/hooks/…,
+    # so the script has to stay there rather than be copied per config home.
+    [ -x .claude/hooks/agentsync-guard.sh ]
+    [ ! -e .claude-hub/hooks/agentsync-guard.sh ]
+    grep -q "\.claude/hooks/agentsync-guard.sh" .claude-hub/settings.json
+}
+
+@test "guard: the shared script is not swept into the profile's ignore list" {
+    run_agentsync profile add hub --tools claude >/dev/null 2>&1
+    run_agentsync sync --force >/dev/null 2>&1
+    # Committed outputs: profile homes are personal and ignored, the guard is not.
+    grep -q "claude-hub" .gitignore
+    ! git check-ignore -q .claude/hooks/agentsync-guard.sh
+}
+
+@test "guard: a profile-only sync still writes the script" {
+    run_agentsync profile add hub --tools claude >/dev/null 2>&1
+    rm -rf .claude/hooks
+    run run_agentsync sync --profile hub --force
+    [ "$status" -eq 0 ]
+    [ -x .claude/hooks/agentsync-guard.sh ]
+}
+
 @test "guard: a project override replaces the shipped script" {
     mkdir -p .ai/src/tools/claude
     printf '#!/bin/sh\nexit 0\n' > .ai/src/tools/claude/guard.sh
