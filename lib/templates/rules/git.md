@@ -1,6 +1,6 @@
 # Git Rules
 
-One logical change per commit, imperative mood, generated artefacts stay out of history.
+One logical change per commit, imperative mood, build artefacts stay out of history.
 
 ## Commits
 
@@ -22,5 +22,6 @@ One logical change per commit, imperative mood, generated artefacts stay out of 
 
 ## Keep Out of History
 
-- Generated artefacts, lockfile binaries, secrets, and `.env*` files belong outside the repo.
-- Reach for `.gitignore` to fence off environment-specific or generated output.
+- Build artefacts, lockfile binaries, secrets, and `.env*` files belong outside the repo.
+- Reach for `.gitignore` to fence off environment-specific or machine-local output.
+- Leave the `AI SYNC GENERATED` block in `.gitignore` to AgentSync — `outputs:` in `.ai/agent_sync.yaml` decides whether generated agent config is committed, and when it is, those files belong in the same commit as the `.ai/src/` change that produced them.

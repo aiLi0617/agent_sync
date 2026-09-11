@@ -24,3 +24,7 @@ targets:
   mcp:
     source: ".ai/src/mcp/claude.json"
     dest: ".mcp.json"
+
+  # Blocks edits to generated files; wired up by hooks.PreToolUse in settings.
+  guard:
+    dest: ".claude/hooks/agentsync-guard.sh"

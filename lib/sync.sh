@@ -330,6 +330,7 @@ _ST_DEST_SUBAGENTS=""
 _ST_DEST_SETTINGS=""
 _ST_DEST_MCP=""
 _ST_DEST_HOOKS=""
+_ST_DEST_GUARD=""
 
 _resolve_tool_dests() {
     local tool_name="$1" display
@@ -342,6 +343,7 @@ _resolve_tool_dests() {
     _ST_DEST_SETTINGS=$(_resolve_one_dest "$tool_name" settings "$display")
     _ST_DEST_MCP=$(_resolve_one_dest "$tool_name" mcp "$display")
     _ST_DEST_HOOKS=$(_resolve_one_dest "$tool_name" hooks "$display")
+    _ST_DEST_GUARD=$(_resolve_one_dest "$tool_name" guard "$display")
 }
 
 # Append a lightweight rule index (name + first heading) to the agents file, for
@@ -648,6 +650,17 @@ _sync_payloads_step() {
         src_hooks_abs=$(resolve_payload_source "$tool_name" "hooks")
         if [[ -n "$src_hooks_abs" ]] && [[ -f "$src_hooks_abs" ]]; then
             copy_file "$src_hooks_abs" "$dest_hooks_abs" "$DRY_RUN"
+        fi
+    fi
+
+    if [[ -n "$_ST_DEST_GUARD" ]]; then
+        local src_guard_abs
+        src_guard_abs=$(resolve_payload_source "$tool_name" "guard")
+        if [[ -n "$src_guard_abs" ]] && [[ -f "$src_guard_abs" ]]; then
+            copy_file "$src_guard_abs" "$_ST_DEST_GUARD" "$DRY_RUN"
+            # A hook the host will not execute is worse than no hook: copy_file
+            # goes through a staging file, so restore the executable bit here.
+            [[ "$DRY_RUN" == "true" ]] || chmod +x "$_ST_DEST_GUARD"
         fi
     fi
 }

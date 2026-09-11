@@ -111,6 +111,26 @@ What the installer does:
 
 Restart your terminal or run `source ~/.zshrc` after installation. Running the installer again updates via `git pull`.
 
+## Team Setup
+
+One person connects the project; nobody else runs anything.
+
+```bash
+cd your-project
+agentsync init --tools claude,cursor   # wizard in a TTY; adopts existing config, then syncs
+git add -A && git commit -m "chore: add agentsync"
+```
+
+`init` keeps the tool config the project already has, generates the outputs for every enabled tool, and — with a `.github/` directory — offers a CI job that runs `agentsync check`. After the commit:
+
+- **Everyone else** runs nothing. `git pull` brings `CLAUDE.md`, `.claude/rules/`, `.cursor/rules/` and the rest, already current.
+- **Anyone editing the rules** edits `.ai/src/`, runs `agentsync sync`, and commits source and outputs together. `agentsync setup-hooks` installs a pre-commit hook that enforces that, and `agentsync check` in CI catches it when they skip the hook.
+- **Everyone's agent** is told to edit `.ai/src/`: the shipped rules say so, and Claude Code gets a generated `PreToolUse` hook that blocks a write to a generated file and names the source instead.
+
+Pin the engine so every machine and CI generate the same bytes: `agentsync_version` in `.ai/agent_sync.yaml` is written by `init`, and `sync` and `check` stop when the running version differs. Install an exact release with `AGENTSYNC_VERSION=<version>` on the installer or `agentsync update <version>`.
+
+Teams that would rather not commit generated files can pass `--outputs local`; then every clone needs `agentsync` and `agentsync setup-hooks`. See [Where generated files live](#where-generated-files-live).
+
 ## Quick Start
 
 ```bash
@@ -119,12 +139,12 @@ agentsync init                        # 1. Interactive wizard in a TTY; auto-det
 agentsync enable claude cursor        # 2. Turn on the tools you use (prints where to edit)
 agentsync add mcp github --command …  # 3. (Optional) wire up shared MCP servers
 agentsync generate | pbcopy           # 4. (Optional) AI-generate a project-specific config
-agentsync sync                        # 5. Distribute to all enabled tools
+agentsync sync                        # 5. Re-distribute after any change to .ai/src/
 ```
 
 **What each step does:**
 
-1. **`agentsync init`** — Scaffolds the `.ai/` directory. In a terminal it opens a short wizard to pick which tools and content sections you want; in scripts/CI it runs silently using auto-detection (`.claude/`, `.cursor/`, `CLAUDE.md`, ...) and sensible defaults. Only the payloads you opt into get scaffolded — other tools use shipped base templates at sync time. Useful flags: `--tools claude,cursor` (explicit list), `--content agents,rules` (narrow content), `--no-templates` (empty `.ai/src/` layout without shipped starters), `--no-detect` (skip tool auto-detection), `--yes` (accept defaults), `--dry-run` (preview). Safe to run twice — if `.ai/src/` already exists, it skips.
+1. **`agentsync init`** — Scaffolds the `.ai/` directory, adopts the tool config the project already has, and runs the first sync. In a terminal it opens a short wizard to pick tools, content sections, whether to commit generated files, and whether to add the CI gate; in scripts/CI it runs silently using auto-detection (`.claude/`, `.cursor/`, `CLAUDE.md`, ...) and those defaults. Only the payloads you opt into get scaffolded — other tools use shipped base templates at sync time. Useful flags: `--tools claude,cursor` (explicit list), `--content agents,rules` (narrow content), `--outputs local` (gitignore the outputs instead), `--existing replace` (regenerate over the project's own config instead of adopting it), `--ci github` (write the check workflow), `--no-sync` (skip the first sync), `--no-templates` (empty `.ai/src/` layout without shipped starters), `--no-detect` (skip tool auto-detection), `--yes` (accept defaults), `--dry-run` (preview). Safe to run twice — if `.ai/src/` already exists, it skips.
 
 2. **`agentsync enable <tool>`** — Adds the tool to `tools.enabled` _and_ scaffolds editable copies of its settings / hooks at `.ai/src/tools/<tool>/`, then prints the exact file path to edit plus the shared MCP path. Pass `--no-scaffold` to skip materializing files; pass `--yes` to accept the TTY confirm non-interactively.
 
@@ -136,7 +156,7 @@ agentsync sync                        # 5. Distribute to all enabled tools
 
 After `sync`, tool-specific directories appear (`.claude/`, `.cursor/`, `.github/`, `.windsurf/`, etc.), each with instructions in that tool's expected format.
 
-> **Important:** `agentsync sync` **overwrites** generated tool directories entirely. If you already have custom rules, skills, commands, settings, or MCP configs in `.claude/`, `.cursor/`, `.github/`, etc., move them into `.ai/src/` first. See [Migrating Existing Configurations](#migrating-existing-configurations).
+> **Important:** `agentsync sync` **overwrites** generated tool directories entirely. `agentsync init` adopts the config a project already has, and `agentsync adopt <file>` promotes a single file at any time — but a sync you run against untouched tool directories replaces them from `.ai/src/`. See [Migrating Existing Configurations](#migrating-existing-configurations).
 
 ## Project Structure
 
@@ -461,6 +481,10 @@ agentsync check              # verify outputs match source (exit 0/1, CI gate)
 | `local`                 | `.ai/src/` only                                      | Every clone, after every pull (`setup-hooks`)        |
 
 In both modes `agentsync sync` manages a block in `.gitignore` between `AI SYNC GENERATED START/END` markers: `local` lists every generated path and the manifest, `committed` lists only profile config homes, which are personal in either mode. The manifest always shares the git status of the outputs it describes — that is what keeps a teammate's `git pull` from looking like a manual edit. A project without an `outputs:` key behaves as `local`, or as `committed` when it already set `gitignore.update: false`.
+
+### Keeping agents on the source
+
+Generated files are output, so an agent that edits them loses the change on the next sync. Three layers prevent that: the shipped `AGENTS.md` and `rules/core.md` state where instructions live, Claude Code receives a generated `PreToolUse` hook (`.claude/hooks/agentsync-guard.sh`) that blocks a write to any path in `.ai/.sync-manifest` and names the source instead, and `sync` refuses to overwrite a generated file edited since the last run. Replace the hook per project at `.ai/src/tools/claude/guard.sh`, or remove the `hooks` block from your settings override to drop it.
 
 `agentsync_version` in `agent_sync.yaml` pins the engine. With committed outputs every machine and CI must generate byte-identical files, so `sync` and `check` stop when the running version differs from the pin: match it with `agentsync update <version>` (or `AGENTSYNC_VERSION=<version>` on the installer), or move the pin with `agentsync upgrade-config` and commit the re-synced outputs. In `local` mode the mismatch is a warning.
 

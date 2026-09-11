@@ -281,6 +281,14 @@ Pass `--adopt` to pull the existing contents of `~/.<tool>-<name>/` into the ove
 - `agentsync upgrade-config` re-pins the engine version in `agent_sync.yaml`.
 - `outputs:` in `agent_sync.yaml` picks where generated files live: `committed` (the `init` default) keeps outputs and `.ai/.sync-manifest` in git so teammates need only `git pull` and CI runs `agentsync check`; `local` gitignores both and every clone runs `agentsync sync`. The manifest always shares the outputs' git status. In `committed` mode `sync` and `check` refuse to run when `agentsync_version` differs from the engine — match it with `agentsync update <version>` or move it with `agentsync upgrade-config`.
 
+## Guarding the generated files
+
+Three layers keep an agent (and a person) editing the source instead of the output:
+
+1. The shipped `AGENTS.md` and `rules/core.md` say where instructions live, so it is in context every session.
+2. Claude Code gets a generated `PreToolUse` hook at `.claude/hooks/agentsync-guard.sh`, wired up by `hooks.PreToolUse` in the base settings. It checks the target path against `.ai/.sync-manifest` and exits 2 — blocking the write — with the source path to edit instead. Override it per project at `.ai/src/tools/claude/guard.sh`, or drop the `hooks` block from your settings override to remove it.
+3. `agentsync sync` refuses to overwrite a generated file that changed since the last sync, and `agentsync adopt <file>` promotes such an edit back into `.ai/src/`.
+
 ## Gotchas
 
 - Always edit files in `.ai/src/`, never in generated directories (`.claude/`, `.cursor/`, etc.). A file you add by hand to a generated dir is preserved with a warning (not silently deleted) — but it is never managed; move it into `.ai/src/`, or run `agentsync sync --force` to prune it. If you edited a generated file while iterating, `agentsync adopt <path>` promotes that edit back into the matching source file — or `agentsync adopt --all` to promote every drifted file at once (refused targets and same-source conflicts are skipped and listed).

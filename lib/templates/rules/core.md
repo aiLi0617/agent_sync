@@ -2,6 +2,12 @@
 
 Write code that fits the project's existing patterns, surfaces failures explicitly, and keeps the change scoped to what the task asked for.
 
+## Agent Configuration
+
+- Change agent instructions in `.ai/src/` only — `AGENTS.md`, `rules/`, `skills/`, `commands/`, `agents/` — then run `agentsync sync`.
+- Treat every generated tool directory as output: `CLAUDE.md`, `.claude/`, `.cursor/`, `.github/copilot-instructions.md`, and the rest are rewritten from `.ai/src/` on the next sync.
+- Recover an edit made in the wrong place with `agentsync adopt <file>`, which promotes it back into `.ai/src/`.
+
 ## Scope of Changes
 
 - Touch only what the task requires. Adjacent code stays as-is until asked.

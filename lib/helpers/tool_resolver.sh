@@ -18,7 +18,7 @@
 # Guarded so a re-source under `set -e` never aborts on the readonly reassignment.
 if [[ -z "${AGENTSYNC_TARGET_KEYS+x}" ]]; then
     # shellcheck disable=SC2034
-    AGENTSYNC_TARGET_KEYS=(agents rules skills commands subagents settings mcp hooks)
+    AGENTSYNC_TARGET_KEYS=(agents rules skills commands subagents settings mcp hooks guard)
     readonly AGENTSYNC_TARGET_KEYS
 fi
 
