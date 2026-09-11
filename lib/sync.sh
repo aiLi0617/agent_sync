@@ -1135,6 +1135,7 @@ _sync_cleanup() {
     [[ "$SYNC_CLEANUP_DONE" != "true" ]] || return 0
     SYNC_CLEANUP_DONE="true"
 
+    base_src_cleanup_overlay || true
     shared_cleanup_overlay || true
     profile_cleanup_overlay || true
 
@@ -1299,6 +1300,9 @@ main() {
     # take precedence, and BEFORE any tool sync reads them. Torn down by the
     # handlers armed at the top of main().
     shared_setup_overlay
+    # After `shared:` so the engine layer only fills paths neither the project
+    # nor its parent provides; before the snapshot so profile passes inherit it.
+    base_src_setup_overlay
 
     _snapshot_base_sources
     _build_tool_catalog

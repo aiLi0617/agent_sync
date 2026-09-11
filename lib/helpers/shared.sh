@@ -31,6 +31,11 @@ SHARED_OVERLAY_INHERIT=""    # CSV of categories that were inherited
 PROFILE_OVERLAY_DIR=""
 PROFILE_OVERLAY_DIR_CANONICAL=""
 
+# Engine-owned base source globals. Same contract again, separate globals so the
+# layer composes under both of the above.
+BASE_SRC_OVERLAY_DIR=""
+BASE_SRC_OVERLAY_DIR_CANONICAL=""
+
 # Remove an overlay tree only when this run created it. Provenance, not path
 # shape: an allowlist of /tmp-like prefixes refuses to clean up under any custom
 # TMPDIR (TMPDIR=$RUNNER_TEMP on CI), leaking a full .ai/src copy per sync.
@@ -225,6 +230,51 @@ shared_setup_overlay() {
 
 # Remove the shadow tree if it was built. Safe to call when overlay is
 # inactive (no-op). Invoked from sync.sh's EXIT trap.
+# Fill in skills the engine owns — content that documents AgentSync itself, so
+# it is versioned with the engine rather than copied into every project where it
+# would go stale. Runs after `shared:` so precedence reads project → shared
+# parent → engine base: the layer only supplies a path nobody else has.
+#
+# Disabled by `base_skills: false` in agent_sync.yaml. A project that wants a
+# different version keeps its own `.ai/src/skills/<name>/`, which wins.
+#
+# Usage: base_src_setup_overlay   (reads SOURCE_* / PROJECT_CONFIG_PATH)
+base_src_setup_overlay() {
+    BASE_SRC_OVERLAY_DIR=""
+
+    local base_src="$DEFAULT_REPO_ROOT/lib/templates/base-src"
+    [[ -d "$base_src/skills" ]] || return 0
+
+    if [[ -n "${PROJECT_CONFIG_PATH:-}" ]] && [[ -f "$PROJECT_CONFIG_PATH" ]]; then
+        local enabled
+        enabled=$(parse_yaml_value "$PROJECT_CONFIG_PATH" "base_skills")
+        [[ "$enabled" == "false" ]] && return 0
+    fi
+
+    # The child is whatever the earlier overlays resolved to, so this layer
+    # composes instead of replacing them.
+    local child_src="$REPO_ROOT/.ai/src"
+    [[ -n "$SHARED_OVERLAY_DIR" ]] && child_src="$SHARED_OVERLAY_DIR"
+    [[ -d "$child_src" ]] || return 0
+
+    local tmpdir
+    tmpdir=$(build_overlay_tree "$child_src" "$base_src" "skills")
+    BASE_SRC_OVERLAY_DIR="$tmpdir"
+    BASE_SRC_OVERLAY_DIR_CANONICAL=$(cd -P "$tmpdir" && pwd)
+    export BASE_SRC_OVERLAY_DIR_CANONICAL
+
+    _overlay_rewrite_sources "$tmpdir"
+}
+
+base_src_cleanup_overlay() {
+    [[ -n "$BASE_SRC_OVERLAY_DIR" ]] || return 0
+    [[ -d "$BASE_SRC_OVERLAY_DIR" ]] || return 0
+    _overlay_remove_if_ours "base-src" "$BASE_SRC_OVERLAY_DIR"
+    BASE_SRC_OVERLAY_DIR=""
+    BASE_SRC_OVERLAY_DIR_CANONICAL=""
+    unset BASE_SRC_OVERLAY_DIR_CANONICAL
+}
+
 shared_cleanup_overlay() {
     [[ -n "$SHARED_OVERLAY_DIR" ]] || return 0
     [[ -d "$SHARED_OVERLAY_DIR" ]] || return 0

@@ -281,6 +281,15 @@ Pass `--adopt` to pull the existing contents of `~/.<tool>-<name>/` into the ove
 - `agentsync upgrade-config` re-pins the engine version in `agent_sync.yaml`.
 - `outputs:` in `agent_sync.yaml` picks where generated files live: `committed` (the `init` default) keeps outputs and `.ai/.sync-manifest` in git so teammates need only `git pull` and CI runs `agentsync check`; `local` gitignores both and every clone runs `agentsync sync`. The manifest always shares the outputs' git status. In `committed` mode `sync` and `check` refuse to run when `agentsync_version` differs from the engine — match it with `agentsync update <version>` or move it with `agentsync upgrade-config`.
 
+## Who owns which file
+
+Two layers, and the difference decides whether an upgrade reaches you:
+
+- **Engine-owned** — this skill. It lives in the install dir (`lib/templates/base-src/skills/`) and is resolved at sync time, so an engine upgrade updates it in every project. Keep your own `.ai/src/skills/agentsync/` to diverge (it wins), or set `base_skills: false` to drop it.
+- **Project-owned** — everything else under `.ai/src/`. Scaffolded once by `init`, updated only when you accept it via `agentsync refresh`, never overwritten by an upgrade.
+
+`format:` in `agent_sync.yaml` records which migrations the project has been through. When the engine ships a newer revision, the next command says so; `agentsync migrate` previews it and `migrate --apply` performs it.
+
 ## Guarding the generated files
 
 Three layers keep an agent (and a person) editing the source instead of the output:

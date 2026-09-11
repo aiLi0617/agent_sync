@@ -139,6 +139,12 @@ is_path_safe_source() {
          [[ "$candidate_path" == "$PROFILE_OVERLAY_DIR_CANONICAL/"* ]]; }; then
         return 0
     fi
+    # Engine-owned base source overlay tmpdir — same contract again.
+    if [[ -n "${BASE_SRC_OVERLAY_DIR_CANONICAL:-}" ]] && \
+       { [[ "$candidate_path" == "$BASE_SRC_OVERLAY_DIR_CANONICAL" ]] || \
+         [[ "$candidate_path" == "$BASE_SRC_OVERLAY_DIR_CANONICAL/"* ]]; }; then
+        return 0
+    fi
     return 1
 }
 

@@ -81,7 +81,7 @@ _drop_manifest_prefix() {
 @test "init: writes template manifest with file hashes" {
     [ -f .ai/.template-manifest ]
     grep -q $'^rules/core.md\t' .ai/.template-manifest
-    grep -q $'^skills/agentsync/SKILL.md\t' .ai/.template-manifest
+    grep -q $'^skills/humanizer/SKILL.md\t' .ai/.template-manifest
     # Hash column non-empty
     awk -F'\t' 'NF>=2 && length($2)==64 {n++} END{exit !(n>0)}' .ai/.template-manifest
 }
@@ -286,17 +286,16 @@ EOF
 }
 
 @test "refresh: nested skill references files added when missing (NEW)" {
-    rm -rf .ai/src/skills/agentsync/references
-    _drop_manifest_prefix "skills/agentsync/references/"
+    rm -rf .ai/src/skills/humanizer/references
+    _drop_manifest_prefix "skills/humanizer/references/"
     run run_agentsync refresh --yes
     [ "$status" -eq 0 ]
-    [ -f .ai/src/skills/agentsync/references/maintenance.md ] || \
-    [ -f .ai/src/skills/agentsync/references/writing-skills.md ]
+    [ -f .ai/src/skills/humanizer/references/wikipedia_signs_of_ai_writing.md ]
 }
 
 @test "init: copies nested skill subdirectories (references, scripts)" {
-    [ -f .ai/src/skills/agentsync/references/writing-skills.md ] || \
-    [ -f .ai/src/skills/agentsync/references/maintenance.md ]
+    [ -f .ai/src/skills/humanizer/references/wikipedia_signs_of_ai_writing.md ]
+    [ -f .ai/src/skills/humanizer/scripts/strip-ai-chars.sh ]
 }
 
 # ── manifest semantics under --yes ───────────────────────────────────────────
