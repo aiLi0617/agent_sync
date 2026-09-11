@@ -161,6 +161,95 @@ _migrate_cleanup_empty_dirs() {
     done
 }
 
+# Engine-owned skills the project still carries its own copy of. Such a copy
+# shadows the engine's version, so upgrades never reach the agents. Echoes one
+# "<name>|unedited" or "<name>|edited" line per copy found.
+_migrate_scan_base_skills() {
+    local base_skills="$DEFAULT_REPO_ROOT/lib/templates/base-src/skills"
+    [[ -d "$base_skills" ]] || return 0
+
+    template_manifest_load
+
+    local dir name copy file rel recorded current state
+    for dir in "$base_skills"/*; do
+        [[ -d "$dir" ]] || continue
+        name="${dir##*/}"
+        copy="$REPO_ROOT/.ai/src/skills/$name"
+        [[ -d "$copy" ]] || continue
+
+        # Unedited means every file still matches the hash recorded when it was
+        # scaffolded — then deleting it loses nothing the engine cannot supply.
+        state="unedited"
+        while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            rel="${file#"$REPO_ROOT/.ai/src/"}"
+            recorded=$(template_manifest_lookup "$rel" 2>/dev/null) || recorded=""
+            current=$(template_manifest_hash "$file" 2>/dev/null) || current=""
+            if [[ -z "$recorded" ]] || [[ "$recorded" != "$current" ]]; then
+                state="edited"
+                break
+            fi
+        done < <(find "$copy" -type f 2>/dev/null)
+
+        echo "$name|$state"
+    done
+}
+
+# Delete unedited copies so the engine's version takes over; keep edited ones,
+# which are a deliberate override. Reports either way.
+_migrate_retire_base_skills() {
+    local apply="$1"
+    local entries="$2"
+    local line name state copy rel file removed=0
+
+    [[ -n "$entries" ]] || return 0
+
+    template_manifest_load
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        name="${line%%|*}"
+        state="${line#*|}"
+        copy="$REPO_ROOT/.ai/src/skills/$name"
+
+        if [[ "$state" == "edited" ]]; then
+            _yellow "  keep"; echo "          .ai/src/skills/$name/ $(_dim "(edited — stays your override; delete it to follow the engine)")"
+            continue
+        fi
+
+        if [[ "$apply" != "true" ]]; then
+            _cyan "  would remove"; echo "  .ai/src/skills/$name/ $(_dim "(unedited — the engine supplies it)")"
+            continue
+        fi
+
+        while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            rel="${file#"$REPO_ROOT/.ai/src/"}"
+            template_manifest_remove "$rel"
+        done < <(find "$copy" -type f 2>/dev/null)
+        rm -rf "$copy"
+        _green "  removed"; echo "       .ai/src/skills/$name/ $(_dim "(the engine supplies it now)")"
+        removed=$((removed + 1))
+    done <<< "$entries"
+
+    [[ "$apply" == "true" ]] && [[ $removed -gt 0 ]] && template_manifest_write
+    return 0
+}
+
+# Record that this project has been walked through every migration this engine
+# knows about. Written here and by `init` only — see format.sh.
+_migrate_write_format() {
+    local apply="$1"
+    local engine_rev="$2"
+
+    [[ -n "$PROJECT_CONFIG_PATH" ]] || return 0
+    if [[ "$apply" != "true" ]]; then
+        _cyan "  would set"; echo "     format: $engine_rev $(_dim "in ${PROJECT_CONFIG_PATH#"$REPO_ROOT/"}")"
+        return 0
+    fi
+    yaml_set_scalar "$PROJECT_CONFIG_PATH" "format" "$engine_rev"
+    _green "  set"; echo "           format: $engine_rev $(_dim "in ${PROJECT_CONFIG_PATH#"$REPO_ROOT/"}")"
+}
+
 _cmd_migrate_legacy() {
     local apply=false
     local yes=false
@@ -202,14 +291,45 @@ USAGE
         has_legacy_agent_dir=true
     fi
 
+    local base_skill_copies engine_rev current_rev
+    base_skill_copies=$(_migrate_scan_base_skills)
+    engine_rev=$(engine_format "$DEFAULT_REPO_ROOT/lib")
+    current_rev=1
+    [[ -n "$PROJECT_CONFIG_PATH" ]] && current_rev=$(project_format "$PROJECT_CONFIG_PATH")
+
     echo ""
     _bold "  AgentSync Migrate"; echo ""
     _dim "  $REPO_ROOT"; echo ""
     echo ""
 
-    if [[ -z "$legacy" ]] && [[ "$has_legacy_agent_dir" != "true" ]]; then
+    if [[ -z "$legacy" ]] \
+        && [[ "$has_legacy_agent_dir" != "true" ]] \
+        && [[ -z "$base_skill_copies" ]] \
+        && [[ "$current_rev" -ge "$engine_rev" ]]; then
         _green "  Nothing to migrate."; echo ""
-        _dim "  No files under .ai/src/{hooks,mcp,settings}/ and no .agent/ legacy dir — already on canonical layout."; echo ""
+        _dim "  Canonical layout, no engine-owned skill copies, format r$current_rev is current."; echo ""
+        echo ""
+        return 0
+    fi
+
+    if [[ -n "$base_skill_copies" ]]; then
+        echo "  $(_bold "Engine-owned skills"):"
+        _migrate_retire_base_skills "$apply" "$base_skill_copies"
+        echo ""
+    fi
+
+    if [[ "$current_rev" -lt "$engine_rev" ]]; then
+        echo "  $(_bold "Project format") $(_dim "r$current_rev → r$engine_rev"):"
+        _migrate_write_format "$apply" "$engine_rev"
+        echo ""
+    fi
+
+    if [[ -z "$legacy" ]] && [[ "$has_legacy_agent_dir" != "true" ]]; then
+        if [[ "$apply" == "true" ]]; then
+            _green "  Migration complete."; echo ""
+        else
+            _dim "  Dry-run — re-run with"; printf ' %s' "$(_cyan "agentsync migrate --apply")"; _dim " to apply."; echo ""
+        fi
         echo ""
         return 0
     fi

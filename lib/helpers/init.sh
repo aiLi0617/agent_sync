@@ -426,6 +426,8 @@ HEAD
         # Pin the CLI version that scaffolded this file. `doctor` warns on
         # mismatches so teams can catch drifting toolchains early.
         echo "agentsync_version: \"${VERSION:-unknown}\""
+        # A fresh project has nothing to migrate, so it starts current.
+        echo "format: $(engine_format "$(dirname "${BASH_SOURCE[0]}")/..")"
         cat << 'HEAD'
 
 # Tools: which ones to sync for this project.

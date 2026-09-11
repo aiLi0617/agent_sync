@@ -90,6 +90,24 @@ template_manifest_record() {
     TEMPLATE_MANIFEST_VALUES+=("$hash")
 }
 
+# Drop a single entry. In-memory only — call template_manifest_write to persist.
+template_manifest_remove() {
+    local rel="$1"
+    [[ -n "$rel" ]] || return 0
+
+    local -a keys=() values=()
+    local i
+    for ((i = 0; i < ${#TEMPLATE_MANIFEST_KEYS[@]}; i++)); do
+        if [[ "${TEMPLATE_MANIFEST_KEYS[$i]}" == "$rel" ]]; then
+            continue
+        fi
+        keys+=("${TEMPLATE_MANIFEST_KEYS[$i]}")
+        values+=("${TEMPLATE_MANIFEST_VALUES[$i]}")
+    done
+    TEMPLATE_MANIFEST_KEYS=("${keys[@]+"${keys[@]}"}")
+    TEMPLATE_MANIFEST_VALUES=("${values[@]+"${values[@]}"}")
+}
+
 # Persist the in-memory manifest to disk atomically. Sort and dedupe via
 # `sort -u` so output is byte-stable (identical input → identical file).
 # Empty manifest removes the file rather than leaving an empty stub.

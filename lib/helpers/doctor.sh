@@ -590,6 +590,19 @@ cmd_doctor() {
         if [[ -n "$pinned_version" ]] && [[ -n "${VERSION:-}" ]] && [[ "$pinned_version" != "$VERSION" ]]; then
             _doctor_warn "CLI version $(_dim "v$VERSION") differs from pinned $(_dim "v$pinned_version") — run $(_cyan "agentsync upgrade-config") to align"
         fi
+
+        # Project format: a pending migration means the engine ships content or
+        # layout this project has not adopted yet.
+        if declare -F engine_format >/dev/null 2>&1; then
+            local engine_rev project_rev
+            engine_rev=$(engine_format "$DEFAULT_REPO_ROOT/lib")
+            project_rev=$(project_format "$PROJECT_CONFIG_PATH")
+            if [[ "$project_rev" -lt "$engine_rev" ]]; then
+                _doctor_warn "Project format $(_dim "r$project_rev") is behind the engine $(_dim "r$engine_rev") — run $(_cyan "agentsync migrate") to preview"
+            else
+                _doctor_ok "Project format: $(_dim "r$project_rev")"
+            fi
+        fi
     else
         _doctor_warn "No agent_sync.yaml — using defaults only"
     fi

@@ -372,9 +372,36 @@ _bg_fetch_latest_version() {
     [[ -n "$latest_tag" ]] && printf '%s\n' "$latest_tag" > "$cache_file" 2>/dev/null || true
 }
 
+# Tell the user when their project is behind a migration this engine ships.
+# Gated on a pending migration rather than rate-limited: the state is finite and
+# actionable, and it disappears for good once `migrate --apply` records it.
+_check_project_format() {
+    local project_dir="${AGENTSYNC_REPO_ROOT:-$PWD}"
+    local config
+    config=$(format_config_path "$project_dir")
+    [[ -n "$config" ]] || return 0
+
+    local engine_rev current_rev
+    engine_rev=$(engine_format "$_AGENTSYNC_LIB_DIR/..")
+    current_rev=$(project_format "$config")
+    [[ "$current_rev" -lt "$engine_rev" ]] || return 0
+
+    echo ""
+    echo "  $(_yellow "This project's agent config is a migration behind") $(_dim "(format r$current_rev → r$engine_rev)")"
+    local note
+    while IFS= read -r note; do
+        [[ -n "$note" ]] || continue
+        echo "    $(_dim "$note")"
+    done < <(format_pending_notes "$current_rev" "$engine_rev")
+    echo "  Preview it with $(_cyan "agentsync migrate"), apply with $(_cyan "agentsync migrate --apply")"
+    echo ""
+}
+
 check_for_updates() {
     [[ -t 1 ]] || return 0
     [[ -z "${AGENTSYNC_NO_UPDATE_CHECK:-}" ]] || return 0
+
+    _check_project_format
 
     local install_dir
     install_dir=$(resolve_install_dir 2>/dev/null) || return 0

@@ -279,6 +279,8 @@ main() {
 
     case "$command" in
         sync|init|rollback|check|list|ls|setup-hooks|export|import|refresh|enable|disable|add|adopt|customize|simplify|migrate|show|diff|resolve|doctor|dedupe|profile|help|--help|-h)
+            # yaml/format back the project-format notice inside the check.
+            _need yaml format
             check_for_updates
             ;;
     esac
@@ -294,7 +296,7 @@ main() {
     esac
 
     case "$command" in
-        init)          _need prompts yaml logging tool_resolver template_manifest paths filters file_ops manifest tmp backup adopt init; shift; cmd_init "$@" ;;
+        init)          _need prompts yaml logging tool_resolver template_manifest paths filters file_ops manifest tmp backup adopt format init; shift; cmd_init "$@" ;;
         sync)
             shift
             # --workspace fan-out: run sync in every .ai/ below cwd before
@@ -328,11 +330,11 @@ main() {
         add)           _need add;                                      shift; cmd_add "$@" ;;
         customize)     _need yaml yaml_edit tool_resolver customize;   shift; cmd_customize "$@" ;;
         simplify)      _need yaml yaml_edit tool_resolver customize simplify;   shift; cmd_simplify "$@" ;;
-        migrate)       _need prompts yaml tool_resolver migrate;     shift; cmd_migrate "$@" ;;
+        migrate)       _need prompts yaml yaml_edit tool_resolver template_manifest format migrate; shift; cmd_migrate "$@" ;;
         show)          _need yaml yaml_edit tool_resolver snapshot customize;   shift; cmd_show "$@" ;;
         diff)          _need yaml yaml_edit tool_resolver snapshot customize;   shift; cmd_diff "$@" ;;
         resolve)       _need yaml yaml_edit tool_resolver snapshot customize resolve_cmd; shift; cmd_resolve "$@" ;;
-        doctor)        _need yaml tool_resolver edit_paths opencode doctor; cmd_doctor ;;
+        doctor)        _need yaml tool_resolver edit_paths opencode format doctor; cmd_doctor ;;
         dedupe)        _need yaml yaml_edit prompts paths template_manifest dedupe; shift; cmd_dedupe "$@" ;;
         adopt)         _need yaml tool_resolver paths logging filters file_ops prompts manifest cli_colors adopt; shift; cmd_adopt "$@" ;;
         profile)       _need yaml yaml_edit tool_resolver profiles paths logging prompts profile; shift; cmd_profile "$@" ;;
