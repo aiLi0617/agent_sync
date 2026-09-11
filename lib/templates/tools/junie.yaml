@@ -12,6 +12,10 @@ targets:
     dest: ".junie/commands"
   subagents:
     dest: ".junie/agents"
+  scripts:
+    dest: ".junie/scripts"
+  workflow:
+    dest: ".junie/workflow"
   mcp:
     source: ".ai/src/mcp/junie.json"
     dest: ".junie/mcp/mcp.json"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # agentsync update — self-update and update-check logic.
 
-readonly AGENTSYNC_REPO="yelmuratoff/agent_sync"
+readonly AGENTSYNC_REPO="aiLi0617/agent_sync"
 
 # Reconcile a managed install dir to the already-fetched origin/main, healing
 # past local drift. The install dir mirrors a release, not a working branch:

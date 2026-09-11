@@ -345,6 +345,28 @@ setup() {
 
 # ── Re-sync stability (finding 5: shared-dest / nested-agents churn) ──────────
 
+# ── Scripts and workflow ─────────────────────────────────────────────────────
+
+@test "sync: scripts copy to Cursor and Claude" {
+    mkdir -p .ai/src/scripts
+    printf '%s\n' '#!/usr/bin/env bash' 'echo hello' > .ai/src/scripts/hello.sh
+    chmod +x .ai/src/scripts/hello.sh
+    run env AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" sync --only cursor,claude
+    [ "$status" -eq 0 ]
+    [ -f ".cursor/scripts/hello.sh" ]
+    [ -f ".claude/scripts/hello.sh" ]
+}
+
+@test "sync: workflow copies to Cursor and skips Windsurf command dest" {
+    mkdir -p .ai/src/workflow
+    printf '%s\n' '# Ship' > .ai/src/workflow/ship.md
+    run env AGENTSYNC_HOME="$REPO_ROOT" bash "$AGENTSYNC_BIN" sync --only cursor,windsurf
+    [ "$status" -eq 0 ]
+    [ -f ".cursor/workflow/ship.md" ]
+    [ ! -d ".windsurf/workflow" ]
+    [ -d ".windsurf/workflows" ]
+}
+
 @test "sync: re-sync emits no churn for shared-dest command-* or nested agents" {
     # A second sync must not warn "Kept" for Codex-generated
     # .agents/skills/command-* (which Antigravity's skills step sweeps because

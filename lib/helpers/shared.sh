@@ -3,7 +3,7 @@
 #
 #   shared:
 #     path: "../"
-#     inherit: rules,skills,commands,agents
+#     inherit: rules,skills,commands,agents,scripts,workflow
 #
 # Effect: at sync time, a shadow `.ai/src/` tree is built combining the
 # child's own source with parent files in inherited categories (child wins
@@ -83,7 +83,7 @@ build_overlay_tree() {
     if [[ -d "$child_src" ]]; then
         [[ -f "$child_src/AGENTS.md" ]] && cp "$child_src/AGENTS.md" "$tmpdir/src/AGENTS.md"
         local item
-        for item in rules skills commands agents; do
+        for item in rules skills commands agents scripts workflow; do
             [[ -d "$child_src/$item" ]] || continue
             cp -R "$child_src/$item" "$tmpdir/src/$item"
         done
@@ -133,6 +133,14 @@ _overlay_rewrite_sources() {
     if [[ -d "$tmpdir/src/agents" ]]; then
         # shellcheck disable=SC2034
         SOURCE_SUBAGENTS="$tmpdir/src/agents"
+    fi
+    if [[ -d "$tmpdir/src/scripts" ]]; then
+        # shellcheck disable=SC2034
+        SOURCE_SCRIPTS="$tmpdir/src/scripts"
+    fi
+    if [[ -d "$tmpdir/src/workflow" ]]; then
+        # shellcheck disable=SC2034
+        SOURCE_WORKFLOW="$tmpdir/src/workflow"
     fi
 }
 
@@ -202,7 +210,7 @@ shared_setup_overlay() {
         # `subagents` token maps to the `agents/` directory on disk.
         [[ "$tok" == "subagents" ]] && tok="agents"
         case "$tok" in
-            rules|skills|commands|agents) inherit_cats+=("$tok") ;;
+            rules|skills|commands|agents|scripts|workflow) inherit_cats+=("$tok") ;;
             *) log_warning "shared.inherit: unknown category '$tok' — skipped" ;;
         esac
     done

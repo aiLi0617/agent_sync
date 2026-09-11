@@ -18,6 +18,12 @@ targets:
     dest: ".opencode/agents"
     format: opencode_md
 
+  scripts:
+    dest: ".opencode/scripts"
+
+  workflow:
+    dest: ".opencode/workflow"
+
   settings:
     source: ".ai/src/settings/opencode.json"
     dest: "opencode.json"

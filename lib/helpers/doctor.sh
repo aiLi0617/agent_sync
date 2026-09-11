@@ -713,7 +713,7 @@ cmd_doctor() {
     _bold "  Source directories"; echo ""
     local missing=0
     local src
-    for src in AGENTS.md rules skills commands agents; do
+    for src in AGENTS.md rules skills commands agents scripts workflow; do
         if [[ -e "$REPO_ROOT/.ai/src/$src" ]]; then
             _doctor_ok ".ai/src/$src"
         else

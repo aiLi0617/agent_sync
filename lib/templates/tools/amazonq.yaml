@@ -11,6 +11,12 @@ targets:
   commands:
     inline_into_agents: true
 
+  scripts:
+    dest: ".amazonq/scripts"
+
+  workflow:
+    dest: ".amazonq/workflow"
+
   mcp:
     source: ".ai/src/mcp/amazonq.json"
     dest: ".amazonq/mcp.json"

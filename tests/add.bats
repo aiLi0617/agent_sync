@@ -40,6 +40,22 @@ teardown() { teardown_test_project; }
     grep -q "^tools:" .ai/src/agents/reviewer.md
 }
 
+@test "add script creates .ai/src/scripts/<name>.sh" {
+    run run_agentsync add script bootstrap
+    [ "$status" -eq 0 ]
+    [ -f ".ai/src/scripts/bootstrap.sh" ]
+    grep -q "bootstrap" .ai/src/scripts/bootstrap.sh
+    grep -q "set -euo pipefail" .ai/src/scripts/bootstrap.sh
+}
+
+@test "add workflow creates .ai/src/workflow/<name>.md" {
+    run run_agentsync add workflow ship
+    [ "$status" -eq 0 ]
+    [ -f ".ai/src/workflow/ship.md" ]
+    grep -q "^# Ship$" .ai/src/workflow/ship.md
+    grep -q "^description:" .ai/src/workflow/ship.md
+}
+
 @test "add prints next-step hint" {
     run run_agentsync add rule testing
     [ "$status" -eq 0 ]

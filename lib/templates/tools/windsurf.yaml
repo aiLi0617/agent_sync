@@ -16,6 +16,9 @@ targets:
   commands:
     dest: ".windsurf/workflows"
 
+  scripts:
+    dest: ".windsurf/scripts"
+
   mcp:
     source: ".ai/src/mcp/windsurf.json"
     dest: ".windsurf/mcp_config.json"

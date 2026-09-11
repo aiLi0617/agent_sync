@@ -17,6 +17,8 @@ Add a new AI coding tool to AgentSync so `agentsync sync` distributes instructio
    - `skills` → skills directory (if supported)
    - `commands` → commands directory (if supported)
    - `subagents` → agents directory (if supported)
+   - `scripts` → scripts directory (if supported)
+   - `workflow` → workflow directory (omit when the tool already uses `workflows/` for commands, or when dest would be `.github/workflows`)
    - `settings`, `mcp`, and `hooks` → tool-specific config or plugin files
    - `enabled: false` on categories the tool or a profile variant must not emit
 4. **Handle format differences** — Check if the tool needs:

@@ -16,7 +16,7 @@
 
 # Outputs (set by _adopt_resolve_dest):
 _ADOPT_TOOL=""           # tool name owning the dest
-_ADOPT_RESOURCE=""       # agents | rules | skills | commands | subagents | settings | mcp | hooks
+_ADOPT_RESOURCE=""       # agents | rules | skills | commands | subagents | scripts | workflow | settings | mcp | hooks
 _ADOPT_DEST_REL=""       # repo-relative dest path
 _ADOPT_DEST_ABS=""       # canonical absolute dest path
 _ADOPT_SOURCE_ABS=""     # absolute source path to write
@@ -68,6 +68,8 @@ _adopt_discover_sources() {
     SOURCE_SKILLS=""
     SOURCE_COMMANDS=""
     SOURCE_SUBAGENTS=""
+    SOURCE_SCRIPTS=""
+    SOURCE_WORKFLOW=""
 
     if [[ -f "$REPO_ROOT/.ai/src/AGENTS.md" ]]; then
         SOURCE_AGENTS=".ai/src/AGENTS.md"
@@ -98,6 +100,18 @@ _adopt_discover_sources() {
     elif [[ -d "$REPO_ROOT/.ai/agents" ]]; then
         SOURCE_SUBAGENTS=".ai/agents"
     fi
+
+    if [[ -d "$REPO_ROOT/.ai/src/scripts" ]]; then
+        SOURCE_SCRIPTS=".ai/src/scripts"
+    elif [[ -d "$REPO_ROOT/.ai/scripts" ]]; then
+        SOURCE_SCRIPTS=".ai/scripts"
+    fi
+
+    if [[ -d "$REPO_ROOT/.ai/src/workflow" ]]; then
+        SOURCE_WORKFLOW=".ai/src/workflow"
+    elif [[ -d "$REPO_ROOT/.ai/workflow" ]]; then
+        SOURCE_WORKFLOW=".ai/workflow"
+    fi
 }
 
 # Compute the dest abs path declared by a tool's targets.<key>.dest.
@@ -123,6 +137,8 @@ _adopt_dir_source_root() {
         skills)    fallback="$SOURCE_SKILLS" ;;
         commands)  fallback="$SOURCE_COMMANDS" ;;
         subagents) fallback="$SOURCE_SUBAGENTS" ;;
+        scripts)   fallback="$SOURCE_SCRIPTS" ;;
+        workflow)  fallback="$SOURCE_WORKFLOW" ;;
         *)         fallback="" ;;
     esac
     local raw="${override:-$fallback}"
@@ -137,12 +153,15 @@ _adopt_try_tool() {
     local target_abs="$2"     # absolute dest path
 
     local tool_agents tool_rules tool_skills tool_commands tool_subagents
+    local tool_scripts tool_workflow
     local tool_settings tool_mcp tool_hooks
     tool_agents=$(_adopt_dest_for "$tool" "agents")
     tool_rules=$(_adopt_dest_for "$tool" "rules")
     tool_skills=$(_adopt_dest_for "$tool" "skills")
     tool_commands=$(_adopt_dest_for "$tool" "commands")
     tool_subagents=$(_adopt_dest_for "$tool" "subagents")
+    tool_scripts=$(_adopt_dest_for "$tool" "scripts")
+    tool_workflow=$(_adopt_dest_for "$tool" "workflow")
     tool_settings=$(_adopt_dest_for "$tool" "settings")
     tool_mcp=$(_adopt_dest_for "$tool" "mcp")
     tool_hooks=$(_adopt_dest_for "$tool" "hooks")
@@ -181,12 +200,14 @@ _adopt_try_tool() {
 
     # Directory targets — dest must live inside.
     local key dir
-    for key in rules skills commands subagents; do
+    for key in rules skills commands subagents scripts workflow; do
         case "$key" in
             rules)     dir="$tool_rules" ;;
             skills)    dir="$tool_skills" ;;
             commands)  dir="$tool_commands" ;;
             subagents) dir="$tool_subagents" ;;
+            scripts)   dir="$tool_scripts" ;;
+            workflow)  dir="$tool_workflow" ;;
         esac
         [[ -z "$dir" ]] && continue
         if [[ "$target_abs" == "$dir/"* ]]; then
@@ -320,7 +341,7 @@ _adopt_resolve_dir_source() {
     # Map dest path inside dest_dir to source path inside src_root, restoring
     # the .md extension when the tool changed it (cursor: .mdc → .md).
     local rel_inside="${_ADOPT_DEST_ABS#"$dest_dir/"}"
-    if [[ "$key" == "rules" ]] || [[ "$key" == "commands" ]] || [[ "$key" == "subagents" ]]; then
+    if [[ "$key" == "rules" ]] || [[ "$key" == "commands" ]] || [[ "$key" == "subagents" ]] || [[ "$key" == "workflow" ]]; then
         local ext
         ext=$(get_tool_value "$tool" "targets.$key.extension")
         if [[ -n "$ext" ]] && [[ "$rel_inside" == *"$ext" ]]; then

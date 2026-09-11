@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`scripts` and `workflow` source directories.** `.ai/src/scripts/` copies as a directory tree (any extension; execute bits kept). `.ai/src/workflow/` copies markdown like commands, with optional extension rename. Scaffold with `agentsync add script <name>` / `agentsync add workflow <name>`, or `init --content scripts,workflow`. Shipped dests use each tool's `scripts/` and `workflow/` folders; workflow is omitted where it would collide with command `workflows/` dests (Windsurf, Cline, Antigravity) or GitHub Actions (`.github/workflows`).
+
+### Changed
+
+- **Install and update target this repository.** `install.sh`, `agentsync update`, and the README curl instructions clone `aiLi0617/agent_sync` instead of upstream `yelmuratoff/agent`, so a `curl | bash` install follows this fork's `main`.
+
 ## 0.35.0
 
 Team setup in one command: generated outputs travel through git, so everyone except the person editing the rules runs nothing.

@@ -43,6 +43,8 @@ Use `agentsync add <kind> <name>` to create a new file with the correct frontmat
 - `agentsync add skill <name>` — creates `.ai/src/skills/<name>/SKILL.md`
 - `agentsync add command <name>` — creates `.ai/src/commands/<name>.md`
 - `agentsync add subagent <name>` — creates `.ai/src/agents/<name>.md`
+- `agentsync add script <name>` — creates `.ai/src/scripts/<name>.sh`
+- `agentsync add workflow <name>` — creates `.ai/src/workflow/<name>.md`
 
 The command refuses to overwrite existing files; pass `--force` (or `-f`) to replace them. Names must contain only letters, digits, hyphens, and underscores — no path separators, no `..`, no leading `.` or `-`.
 

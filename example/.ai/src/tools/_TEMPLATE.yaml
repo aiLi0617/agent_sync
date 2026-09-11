@@ -80,6 +80,12 @@ targets:
   #   dest: ".tool/agents"
   #   # extension: ".agent.md"    # Optional: change file extension
 
+  # scripts:
+  #   dest: ".tool/scripts"
+
+  # workflow:
+  #   dest: ".tool/workflow"
+
   # Settings/permissions (optional, file copy)
   # settings:
   #   source: ".ai/src/settings/tool.json"

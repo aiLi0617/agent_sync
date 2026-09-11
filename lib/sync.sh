@@ -94,6 +94,8 @@ SOURCE_SKILLS=""
 SOURCE_TOOLS=""
 SOURCE_COMMANDS=""
 SOURCE_SUBAGENTS=""
+SOURCE_SCRIPTS=""
+SOURCE_WORKFLOW=""
 # DEFAULT_ENABLED is kept for legacy config compatibility; tool enablement is now
 # driven by tools.enabled in agent_sync.yaml (see tool_resolver.sh).
 # shellcheck disable=SC2034
@@ -125,6 +127,8 @@ BASE_SOURCE_RULES=""
 BASE_SOURCE_SKILLS=""
 BASE_SOURCE_COMMANDS=""
 BASE_SOURCE_SUBAGENTS=""
+BASE_SOURCE_SCRIPTS=""
+BASE_SOURCE_WORKFLOW=""
 PROFILE_BASE_SRC=""
 # Tool catalog + profiles selected for this run (set by _build_tool_catalog).
 declare -a ALL_TOOLS=()
@@ -321,12 +325,14 @@ _resolve_one_dest() {
 
 # Resolved dest paths for the tool currently being synced — populated by
 # _resolve_tool_dests, read by the _sync_*_step helpers. Module-scoped so the
-# steps share them without threading eight positional args through every call.
+# steps share them without threading dest args through every call.
 _ST_DEST_AGENTS=""
 _ST_DEST_RULES=""
 _ST_DEST_SKILLS=""
 _ST_DEST_COMMANDS=""
 _ST_DEST_SUBAGENTS=""
+_ST_DEST_SCRIPTS=""
+_ST_DEST_WORKFLOW=""
 _ST_DEST_SETTINGS=""
 _ST_DEST_MCP=""
 _ST_DEST_HOOKS=""
@@ -340,6 +346,8 @@ _resolve_tool_dests() {
     _ST_DEST_SKILLS=$(_resolve_one_dest "$tool_name" skills "$display")
     _ST_DEST_COMMANDS=$(_resolve_one_dest "$tool_name" commands "$display")
     _ST_DEST_SUBAGENTS=$(_resolve_one_dest "$tool_name" subagents "$display")
+    _ST_DEST_SCRIPTS=$(_resolve_one_dest "$tool_name" scripts "$display")
+    _ST_DEST_WORKFLOW=$(_resolve_one_dest "$tool_name" workflow "$display")
     _ST_DEST_SETTINGS=$(_resolve_one_dest "$tool_name" settings "$display")
     _ST_DEST_MCP=$(_resolve_one_dest "$tool_name" mcp "$display")
     _ST_DEST_HOOKS=$(_resolve_one_dest "$tool_name" hooks "$display")
@@ -606,6 +614,44 @@ _sync_subagents_step() {
     esac
 }
 
+# Sync SCRIPTS as a directory tree (any extension; execute bits preserved).
+# Silent when the source dir is absent so tools can declare a dest before
+# the project has any scripts.
+_sync_scripts_step() {
+    local tool_name="$1" display="$2"
+    local dest_scripts_abs="$_ST_DEST_SCRIPTS"
+    [[ -n "$dest_scripts_abs" ]] || return 0
+
+    local src_scripts_abs override
+    get_tool_value_r "$tool_name" "targets.scripts.source"; override="$REPLY"
+    [[ -n "$override" || -n "${SOURCE_SCRIPTS:-}" ]] || return 0
+    src_scripts_abs=$(_resolve_tool_src "$tool_name" scripts "${SOURCE_SCRIPTS:-.ai/src/scripts}" "$display")
+    [[ -d "$src_scripts_abs" ]] || return 0
+
+    local scripts_include scripts_exclude
+    scripts_include=$(get_tool_filter "$tool_name" "targets.scripts.include")
+    scripts_exclude=$(get_tool_filter "$tool_name" "targets.scripts.exclude")
+    sync_dir "$src_scripts_abs" "$dest_scripts_abs" "$DRY_RUN" "$scripts_include" "$scripts_exclude"
+}
+
+# Sync WORKFLOW markdown files, with optional extension rename (like commands).
+_sync_workflow_step() {
+    local tool_name="$1" display="$2"
+    local dest_workflow_abs="$_ST_DEST_WORKFLOW"
+    [[ -n "$dest_workflow_abs" ]] || return 0
+
+    local src_workflow_abs override dest_wf_ext wf_include wf_exclude
+    get_tool_value_r "$tool_name" "targets.workflow.source"; override="$REPLY"
+    [[ -n "$override" || -n "${SOURCE_WORKFLOW:-}" ]] || return 0
+    src_workflow_abs=$(_resolve_tool_src "$tool_name" workflow "${SOURCE_WORKFLOW:-.ai/src/workflow}" "$display")
+    [[ -d "$src_workflow_abs" ]] || return 0
+
+    get_tool_value_r "$tool_name" "targets.workflow.extension"; dest_wf_ext="$REPLY"
+    wf_include=$(get_tool_filter "$tool_name" "targets.workflow.include")
+    wf_exclude=$(get_tool_filter "$tool_name" "targets.workflow.exclude")
+    sync_rules "$src_workflow_abs" "$dest_workflow_abs" "$dest_wf_ext" "" "$DRY_RUN" "$wf_include" "$wf_exclude"
+}
+
 # Copy the SETTINGS, MCP, and HOOKS payloads — each per-tool override falling
 # back to the shared/base source via resolve_payload_source.
 _sync_payloads_step() {
@@ -687,6 +733,8 @@ sync_tool() {
     _sync_skills_step "$tool_name" "$display"
     _sync_commands_step "$tool_name" "$display"
     _sync_subagents_step "$tool_name" "$display"
+    _sync_scripts_step "$tool_name" "$display"
+    _sync_workflow_step "$tool_name" "$display"
     _sync_payloads_step "$tool_name" "$display"
 
     local post_sync_cmd
@@ -849,14 +897,21 @@ _resolve_sources() {
     detected=$(_detect_source dir commands);   [[ -n "$detected" ]] && SOURCE_COMMANDS="$detected"
     SOURCE_SUBAGENTS=""
     detected=$(_detect_source dir agents);     [[ -n "$detected" ]] && SOURCE_SUBAGENTS="$detected"
+    SOURCE_SCRIPTS=""
+    detected=$(_detect_source dir scripts);    [[ -n "$detected" ]] && SOURCE_SCRIPTS="$detected"
+    SOURCE_WORKFLOW=""
+    detected=$(_detect_source dir workflow);   [[ -n "$detected" ]] && SOURCE_WORKFLOW="$detected"
 
     local override_agents override_rules override_skills override_tools override_commands override_subagents
+    local override_scripts override_workflow
     override_agents=$(resolve_source_override "agents")
     override_rules=$(resolve_source_override "rules")
     override_skills=$(resolve_source_override "skills")
     override_tools=$(resolve_source_override "tools")
     override_commands=$(resolve_source_override "commands")
     override_subagents=$(resolve_source_override "subagents")
+    override_scripts=$(resolve_source_override "scripts")
+    override_workflow=$(resolve_source_override "workflow")
 
     [[ -n "$override_agents" ]] && SOURCE_AGENTS="$override_agents"
     [[ -n "$override_rules" ]] && SOURCE_RULES="$override_rules"
@@ -865,6 +920,8 @@ _resolve_sources() {
     [[ -n "$override_tools" ]] && SOURCE_TOOLS="$override_tools"
     [[ -n "$override_commands" ]] && SOURCE_COMMANDS="$override_commands"
     [[ -n "$override_subagents" ]] && SOURCE_SUBAGENTS="$override_subagents"
+    [[ -n "$override_scripts" ]] && SOURCE_SCRIPTS="$override_scripts"
+    [[ -n "$override_workflow" ]] && SOURCE_WORKFLOW="$override_workflow"
 
     local source_agents_abs
     source_agents_abs=$(resolve_source_path "$SOURCE_AGENTS" "source.agents")
@@ -894,7 +951,7 @@ _sync_is_stale() {
 
     # Honor source.* overrides that point outside .ai/src.
     local rel abs
-    for rel in "$SOURCE_AGENTS" "$SOURCE_RULES" "$SOURCE_SKILLS" "$SOURCE_COMMANDS" "$SOURCE_SUBAGENTS"; do
+    for rel in "$SOURCE_AGENTS" "$SOURCE_RULES" "$SOURCE_SKILLS" "$SOURCE_COMMANDS" "$SOURCE_SUBAGENTS" "$SOURCE_SCRIPTS" "$SOURCE_WORKFLOW"; do
         [[ -n "$rel" ]] || continue
         if [[ "$rel" == /* ]]; then abs="$rel"; else abs="$REPO_ROOT/$rel"; fi
         [[ "$abs" == "$src" || "$abs" == "$src"/* ]] && continue
@@ -925,7 +982,7 @@ _collect_tool_dests() {
         LAST_COLLECTED_DESTS+=("$abs")
         rel=$(to_repo_relative_path "$abs")
         case "$key" in
-            rules|skills|commands|subagents) rel="$rel/" ;;
+            rules|skills|commands|subagents|scripts|workflow) rel="$rel/" ;;
         esac
         # A target a profile does not scope is shared project content, not the
         # profile's personal config home, so it follows the outputs mode.
@@ -1015,6 +1072,8 @@ _snapshot_base_sources() {
     BASE_SOURCE_SKILLS="$SOURCE_SKILLS"
     BASE_SOURCE_COMMANDS="$SOURCE_COMMANDS"
     BASE_SOURCE_SUBAGENTS="$SOURCE_SUBAGENTS"
+    BASE_SOURCE_SCRIPTS="$SOURCE_SCRIPTS"
+    BASE_SOURCE_WORKFLOW="$SOURCE_WORKFLOW"
 
     PROFILE_BASE_SRC="$REPO_ROOT/.ai/src"
     if [[ -n "${SHARED_OVERLAY_DIR:-}" ]] && [[ -d "$SHARED_OVERLAY_DIR/src" ]]; then
@@ -1217,6 +1276,8 @@ _run_profile_passes() {
         SOURCE_SKILLS="$BASE_SOURCE_SKILLS"
         SOURCE_COMMANDS="$BASE_SOURCE_COMMANDS"
         SOURCE_SUBAGENTS="$BASE_SOURCE_SUBAGENTS"
+        SOURCE_SCRIPTS="$BASE_SOURCE_SCRIPTS"
+        SOURCE_WORKFLOW="$BASE_SOURCE_WORKFLOW"
         profile_setup_overlay "$_p" "$PROFILE_BASE_SRC" || true
 
         while IFS= read -r t; do

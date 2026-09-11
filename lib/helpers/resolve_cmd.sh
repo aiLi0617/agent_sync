@@ -54,6 +54,9 @@ targets.commands.as_skills
 targets.commands.inline_into_agents
 targets.subagents.dest
 targets.subagents.format
+targets.scripts.dest
+targets.workflow.dest
+targets.workflow.extension
 targets.settings.source
 targets.settings.dest
 targets.mcp.source

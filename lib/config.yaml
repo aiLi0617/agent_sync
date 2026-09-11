@@ -5,6 +5,10 @@ source:
   agents: ".ai/src/AGENTS.md"
   rules: ".ai/src/rules"
   skills: ".ai/src/skills"
+  commands: ".ai/src/commands"
+  subagents: ".ai/src/agents"
+  scripts: ".ai/src/scripts"
+  workflow: ".ai/src/workflow"
   tools: ".ai/src/tools"
 
 # Default settings for all tools

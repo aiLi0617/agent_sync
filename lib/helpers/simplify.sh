@@ -38,6 +38,11 @@ targets.commands.inline_into_agents
 targets.subagents.dest
 targets.subagents.format
 targets.subagents.extension
+targets.scripts.dest
+targets.scripts.source
+targets.workflow.dest
+targets.workflow.source
+targets.workflow.extension
 targets.settings.source
 targets.settings.dest
 targets.mcp.source

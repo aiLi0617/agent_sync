@@ -18,6 +18,12 @@ targets:
     dest: ".codex/agents"
     format: toml
 
+  scripts:
+    dest: ".codex/scripts"
+
+  workflow:
+    dest: ".codex/workflow"
+
   hooks:
     source: ".ai/src/hooks/codex.json"
     dest: ".codex/hooks.json"

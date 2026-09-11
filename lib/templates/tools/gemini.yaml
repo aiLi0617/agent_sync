@@ -18,6 +18,12 @@ targets:
   subagents:
     dest: ".gemini/agents"
 
+  scripts:
+    dest: ".gemini/scripts"
+
+  workflow:
+    dest: ".gemini/workflow"
+
   settings:
     source: ".ai/src/settings/gemini.json"
     dest: ".gemini/settings.json"

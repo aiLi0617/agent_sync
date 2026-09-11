@@ -113,6 +113,24 @@ targets:
   #   # extension: ".agent.md"    # Optional: change file extension
   #   # format: opencode_md        # Optional: convert portable frontmatter
 
+  # Project scripts (optional). Directory copy — any extension, execute bits kept.
+  # scripts:
+  #   dest: ".tool/scripts"
+  #   # source: ".ai/src/scripts"
+  #   # include: "*.sh"
+  #   # exclude: "draft-*"
+
+  # Workflow markdown (optional). File copy like commands; optional extension rename.
+  # Omit dest when the tool already uses a workflows/ folder for commands
+  # (Windsurf, Cline, Antigravity) or when dest would collide with GitHub Actions
+  # (.github/workflows).
+  # workflow:
+  #   dest: ".tool/workflow"
+  #   # source: ".ai/src/workflow"
+  #   # extension: ".md"
+  #   # include: "*.md"
+  #   # exclude: "draft-*.md"
+
   # Settings/permissions (optional, file copy)
   # settings:
   #   source: ".ai/src/settings/tool.json"

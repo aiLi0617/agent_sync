@@ -4,7 +4,7 @@
 # Shared target names used by both export and import.
 # Order matches init.sh directory creation.
 _BUNDLE_FILE_TARGETS=("AGENTS.md")
-_BUNDLE_DIR_TARGETS=("rules" "skills" "commands" "agents" "settings" "mcp" "hooks" "tools")
+_BUNDLE_DIR_TARGETS=("rules" "skills" "commands" "agents" "scripts" "workflow" "settings" "mcp" "hooks" "tools")
 _BUNDLE_CONFIG=".ai/agent_sync.yaml"
 _BUNDLE_CONFIG_LEGACY="agent_sync.yaml"
 
@@ -38,6 +38,8 @@ _resolve_source_paths() {
     _SRC_SKILLS=""
     _SRC_COMMANDS=""
     _SRC_AGENTS_DIR=""
+    _SRC_SCRIPTS=""
+    _SRC_WORKFLOW=""
     _SRC_SETTINGS=""
     _SRC_MCP=""
     _SRC_HOOKS=""
@@ -52,6 +54,8 @@ _resolve_source_paths() {
             skills)   _SRC_SKILLS="$_SRC_BASE/$dir_name" ;;
             commands) _SRC_COMMANDS="$_SRC_BASE/$dir_name" ;;
             agents)   _SRC_AGENTS_DIR="$_SRC_BASE/$dir_name" ;;
+            scripts)  _SRC_SCRIPTS="$_SRC_BASE/$dir_name" ;;
+            workflow) _SRC_WORKFLOW="$_SRC_BASE/$dir_name" ;;
             settings) _SRC_SETTINGS="$_SRC_BASE/$dir_name" ;;
             mcp)      _SRC_MCP="$_SRC_BASE/$dir_name" ;;
             hooks)    _SRC_HOOKS="$_SRC_BASE/$dir_name" ;;
@@ -76,6 +80,12 @@ _resolve_source_paths() {
 
         override=$(parse_yaml_value "$config" "source.subagents") || true
         [[ -n "$override" ]] && _SRC_AGENTS_DIR="$override" || true
+
+        override=$(parse_yaml_value "$config" "source.scripts") || true
+        [[ -n "$override" ]] && _SRC_SCRIPTS="$override" || true
+
+        override=$(parse_yaml_value "$config" "source.workflow") || true
+        [[ -n "$override" ]] && _SRC_WORKFLOW="$override" || true
 
         override=$(parse_yaml_value "$config" "source.tools") || true
         [[ -n "$override" ]] && _SRC_TOOLS="$override" || true
@@ -144,6 +154,8 @@ cmd_export() {
         "skills:$_SRC_SKILLS"
         "commands:$_SRC_COMMANDS"
         "agents:$_SRC_AGENTS_DIR"
+        "scripts:$_SRC_SCRIPTS"
+        "workflow:$_SRC_WORKFLOW"
         "settings:$_SRC_SETTINGS"
         "mcp:$_SRC_MCP"
         "hooks:$_SRC_HOOKS"

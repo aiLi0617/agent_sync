@@ -171,7 +171,7 @@ _profile_adopt_home() {
     [[ -d "$home_abs" ]] || return 0
 
     local item
-    for item in rules skills commands agents; do
+    for item in rules skills commands agents scripts workflow; do
         [[ -d "$home_abs/$item" ]] || continue
         mkdir -p "$overlay_src/$item"
         # -L dereferences symlinked skills (plugins symlink theirs) into real

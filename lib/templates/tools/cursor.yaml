@@ -20,6 +20,12 @@ targets:
   commands:
     dest: ".cursor/commands"
 
+  scripts:
+    dest: ".cursor/scripts"
+
+  workflow:
+    dest: ".cursor/workflow"
+
   mcp:
     source: ".ai/src/mcp/cursor.json"
     dest: ".cursor/mcp.json"

@@ -10,7 +10,7 @@
 #     They are scaffolded only for tools the user has opted into (auto-detected
 #     from filesystem markers, passed via --tools, or explicitly enabled later).
 #     Missing overrides fall back to base templates at sync time.
-#   - Source content (AGENTS.md, rules, skills, commands, agents) is selectable
+#   - Source content (AGENTS.md, rules, skills, commands, agents, scripts, workflow) is selectable
 #     via --content (default: all sections). Pass --no-templates to create paths
 #     without copying shipped starter files.
 
@@ -19,7 +19,7 @@
 _INIT_CONTENT_DEFAULT="agents,rules,skills,commands,subagents"
 
 # Valid content sections accepted by --content.
-_INIT_CONTENT_VALID="agents rules skills commands subagents"
+_INIT_CONTENT_VALID="agents rules skills commands subagents scripts workflow"
 
 # Transaction state is activated only after validation, planning, and any
 # interactive confirmation have completed.
@@ -241,6 +241,8 @@ _init_create_directories() {
     _init_list_contains "skills"    "$content_list" && mkdir -p "$ai_dir/src/skills"
     _init_list_contains "commands"  "$content_list" && mkdir -p "$ai_dir/src/commands"
     _init_list_contains "subagents" "$content_list" && mkdir -p "$ai_dir/src/agents"
+    _init_list_contains "scripts"   "$content_list" && mkdir -p "$ai_dir/src/scripts"
+    _init_list_contains "workflow"  "$content_list" && mkdir -p "$ai_dir/src/workflow"
     # tools/ intentionally NOT created — created on demand by `customize`.
     # tools/<tool>/ payload overrides are created on demand by `_init_copy_tool_payloads`
     # only for tools that are enabled.
@@ -453,6 +455,8 @@ source:
   skills: ".ai/src/skills"
   commands: ".ai/src/commands"
   subagents: ".ai/src/agents"
+  scripts: ".ai/src/scripts"
+  workflow: ".ai/src/workflow"
   tools: ".ai/src/tools"
 
 # Global defaults applied to all tools.
@@ -543,6 +547,26 @@ _init_print_summary() {
             echo "   Created $(_cyan ".ai/src/agents/")         — $agent_count subagent(s)"
         elif [[ "$no_templates" == "true" ]]; then
             echo "   Created $(_cyan ".ai/src/agents/")         — $(_dim "(empty)")"
+        fi
+    fi
+
+    local script_count=0
+    if [[ -d "$ai_dir/src/scripts" ]]; then
+        for f in "$ai_dir/src/scripts/"*; do [[ -f "$f" ]] && script_count=$((script_count + 1)); done
+        if [[ $script_count -gt 0 ]]; then
+            echo "   Created $(_cyan ".ai/src/scripts/")        — $script_count script(s)"
+        else
+            echo "   Created $(_cyan ".ai/src/scripts/")        — $(_dim "(empty)")"
+        fi
+    fi
+
+    local workflow_count=0
+    if [[ -d "$ai_dir/src/workflow" ]]; then
+        for f in "$ai_dir/src/workflow/"*.md; do [[ -f "$f" ]] && workflow_count=$((workflow_count + 1)); done
+        if [[ $workflow_count -gt 0 ]]; then
+            echo "   Created $(_cyan ".ai/src/workflow/")       — $workflow_count workflow(s)"
+        else
+            echo "   Created $(_cyan ".ai/src/workflow/")       — $(_dim "(empty)")"
         fi
     fi
 
@@ -844,8 +868,8 @@ Options:
   --tools <csv>        Enable these tools (e.g. claude,cursor). Unions with
                        auto-detection unless --no-detect is passed.
   --content <csv>      Which source sections to scaffold. Valid tokens:
-                       agents, rules, skills, commands, subagents.
-                       Default: all of them.
+                       agents, rules, skills, commands, subagents,
+                       scripts, workflow. Default: agents through subagents.
   --no-detect          Skip filesystem marker auto-detection (tools only).
   --outputs <mode>     Where generated tool files live. `committed` (default)
                        keeps them and .ai/.sync-manifest in git so teammates

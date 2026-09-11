@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # AgentSync CLI — single entry point for all operations.
-# https://github.com/yelmuratoff/agent
+# https://github.com/aiLi0617/agent_sync
 
 set -euo pipefail
 
@@ -110,7 +110,7 @@ print_usage() {
     echo "    $(_cyan "list")           Show available tools and their status"
     echo "    $(_cyan "enable")         Opt in to one or more tools"
     echo "    $(_cyan "disable")        Opt out of one or more tools"
-    echo "    $(_cyan "add")            Scaffold a rule, skill, command, or subagent"
+    echo "    $(_cyan "add")            Scaffold a rule, skill, command, subagent, script, or workflow"
     echo "    $(_cyan "customize")      Create a per-field override for a tool"
     echo "    $(_cyan "simplify")       Remove override fields that match the base"
     echo "    $(_cyan "migrate")        Print and copy a prompt for upgrading an existing config"
@@ -147,7 +147,9 @@ print_usage() {
     echo "    agentsync list"
     echo "    agentsync enable claude cursor"
     echo "    agentsync add rule testing"
-    echo "    agentsync add skill deploy"
+    echo "    agentsync add skill deploy
+    agentsync add script bootstrap
+    agentsync add workflow ship"
     echo "    agentsync customize cursor"
     echo "    agentsync simplify"
     echo "    agentsync simplify cursor --apply"
@@ -178,7 +180,7 @@ print_usage() {
     echo "    agentsync refresh --dry-run"
     echo ""
     echo "  $(_green "DOCS")"
-    _dim  "    https://github.com/yelmuratoff/agent"; echo ""
+    _dim  "    https://github.com/aiLi0617/agent_sync"; echo ""
     echo ""
 }
 

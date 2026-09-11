@@ -14,6 +14,12 @@ targets:
   commands:
     as_skills: true
 
+  scripts:
+    dest: ".kimi-code/scripts"
+
+  workflow:
+    dest: ".kimi-code/workflow"
+
   mcp:
     source: ".ai/src/mcp/kimi.json"
     dest: ".kimi-code/mcp.json"

@@ -2,7 +2,7 @@
 # agentsync add — scaffold new source content.
 #
 # Usage:
-#   agentsync add <kind> <name> [--force]   kinds: rule, skill, command, subagent
+#   agentsync add <kind> <name> [--force]   kinds: rule, skill, command, subagent, script, workflow
 #   agentsync add mcp <server>   [--url URL | --command CMD] [--args "a b c"]
 #                                [--env KEY=VAL,...]  [--force]
 #
@@ -15,7 +15,7 @@
 _add_print_usage() {
     echo "$(_red "Error"): agentsync add <kind> <name> [options]" >&2
     echo "" >&2
-    echo "Kinds: rule, skill, command, subagent, mcp" >&2
+    echo "Kinds: rule, skill, command, subagent, script, workflow, mcp" >&2
     echo "" >&2
     echo "MCP: agentsync add mcp <server> (--url URL | --command CMD [--args 'a b'] [--env K=V,...])" >&2
 }
@@ -23,10 +23,10 @@ _add_print_usage() {
 _add_validate_kind() {
     local kind="$1"
     case "$kind" in
-        rule|skill|command|subagent) return 0 ;;
+        rule|skill|command|subagent|script|workflow) return 0 ;;
         *)
             echo "$(_red "Error"): Unknown kind '$kind'." >&2
-            echo "Valid kinds: rule, skill, command, subagent" >&2
+            echo "Valid kinds: rule, skill, command, subagent, script, workflow" >&2
             return 1
             ;;
     esac
@@ -72,6 +72,8 @@ _add_resolve_dest() {
         skill)    echo "$project_dir/.ai/src/skills/$name/SKILL.md" ;;
         command)  echo "$project_dir/.ai/src/commands/$name.md" ;;
         subagent) echo "$project_dir/.ai/src/agents/$name.md" ;;
+        script)   echo "$project_dir/.ai/src/scripts/$name.sh" ;;
+        workflow) echo "$project_dir/.ai/src/workflow/$name.md" ;;
     esac
 }
 
@@ -79,7 +81,10 @@ _add_resolve_dest() {
 _add_resolve_template() {
     local kind="$1"
     local templates_dir="$2"
-    echo "$templates_dir/${kind}.md"
+    case "$kind" in
+        script) echo "$templates_dir/script.sh" ;;
+        *)      echo "$templates_dir/${kind}.md" ;;
+    esac
 }
 
 # ── Public command ────────────────────────────────────────────────────────────
@@ -112,6 +117,8 @@ Usage: agentsync add <kind> <name> [--force]
     skill      Create .ai/src/skills/<name>/SKILL.md
     command    Create .ai/src/commands/<name>.md
     subagent   Create .ai/src/agents/<name>.md
+    script     Create .ai/src/scripts/<name>.sh
+    workflow   Create .ai/src/workflow/<name>.md
     mcp        Add an MCP server entry to .ai/src/mcp.json
 
   --force, -f   Overwrite an existing file.
@@ -207,6 +214,10 @@ USAGE
         -e "s|^name: \"content\"$|name: \"$name\"|" \
         -e "s|^name: \"template-agent\"$|name: \"$name\"|" \
         "$template_file" > "$dest"
+
+    if [[ "$kind" == "script" ]]; then
+        chmod +x "$dest" 2>/dev/null || true
+    fi
 
     local rel="$dest"
     if [[ "$dest" == "$project_dir/"* ]]; then

@@ -327,6 +327,15 @@ teardown() {
     [ -z "$(find .ai/src/skills -name 'SKILL.md' 2>/dev/null | head -1)" ]
 }
 
+@test "init --content scripts,workflow creates empty dirs" {
+    run run_agentsync init --no-templates --no-detect --content scripts,workflow
+    [ "$status" -eq 0 ]
+    [ -d ".ai/src/scripts" ]
+    [ -d ".ai/src/workflow" ]
+    [ ! -d ".ai/src/rules" ]
+    [ ! -d ".ai/src/skills" ]
+}
+
 @test "init --no-templates --content agents,rules narrows empty dirs" {
     run run_agentsync init --no-templates --no-detect --content agents,rules
     [ "$status" -eq 0 ]

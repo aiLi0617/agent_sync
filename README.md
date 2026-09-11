@@ -1,17 +1,17 @@
 <div align="center">
-  <img src="https://github.com/yelmuratoff/agent/blob/main/assets/agent_sync.png?raw=true" width="400">
+  <img src="https://github.com/aiLi0617/agent_sync/blob/main/assets/agent_sync.png?raw=true" width="400">
 
   <h3>One source → 13 AI tools. Stop copy-pasting rules.</h3>
 
   <p>
-    <a href="https://github.com/yelmuratoff/agent">
+    <a href="https://github.com/aiLi0617/agent_sync">
       <img src="https://img.shields.io/badge/shell-bash-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white" alt="Built with Bash">
     </a>
     <a href="https://www.gnu.org/licenses/gpl-3.0.html">
       <img src="https://img.shields.io/badge/license-GPL--3.0--only-4EAA25?style=for-the-badge" alt="GPL-3.0-only License">
     </a>
-    <a href="https://github.com/yelmuratoff/agent">
-      <img src="https://img.shields.io/github/stars/yelmuratoff/agent?style=for-the-badge&logo=github&color=4EAA25" alt="GitHub stars">
+    <a href="https://github.com/aiLi0617/agent_sync">
+      <img src="https://img.shields.io/github/stars/aiLi0617/agent_sync?style=for-the-badge&logo=github&color=4EAA25" alt="GitHub stars">
     </a>
   </p>
 </div>
@@ -94,13 +94,13 @@ The frontmatter above is the always-on default. Give a rule `paths:` frontmatter
 Requirements: `git`, `bash`. Works on **macOS** and **Linux** out of the box. On **Windows**, use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or [Git Bash](https://gitforwindows.org/) (included with Git for Windows).
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/yelmuratoff/agent/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/aiLi0617/agent_sync/main/install.sh | bash
 ```
 
 To install the exact release a project pins in `agentsync_version` — what CI should do when outputs are committed — set `AGENTSYNC_VERSION`; the same variable moves an existing install, and `agentsync update <version>` does it from the CLI:
 
 ```bash
-AGENTSYNC_VERSION=0.35.0 curl -fsSL https://raw.githubusercontent.com/yelmuratoff/agent/main/install.sh | bash
+AGENTSYNC_VERSION=0.35.0 curl -fsSL https://raw.githubusercontent.com/aiLi0617/agent_sync/main/install.sh | bash
 ```
 
 What the installer does:
@@ -176,6 +176,8 @@ AgentSync supports two source layouts:
     │   └── .../SKILL.md
     ├── commands/               # (optional) custom slash commands
     ├── agents/                 # (optional) subagent personas
+    ├── scripts/                # (optional) project scripts (any extension)
+    ├── workflow/               # (optional) workflow markdown
     ├── mcp.json                # (optional) shared MCP servers for compatible targets
     └── tools/                  # (optional) per-tool overrides
         ├── claude.yaml         #   tool YAML (same file as before 0.11)
@@ -198,6 +200,8 @@ AgentSync supports two source layouts:
 | **skills/**   | On-demand recipes in the open [agentskills.io](https://agentskills.io) format. Each skill = directory with `SKILL.md` + optional `references/`, `scripts/`, `assets/`. Description is the trigger (imperative + pushy + ≤1024 chars). `Gotchas` section prevents repeated mistakes. Inlined as index for tools without native skills support. | All                                                         |
 | **commands/** | Custom slash commands. `review.md` → `/project:review`. Support `$ARGUMENTS` and `` !`shell` `` syntax. Auto-converted to TOML for Gemini. For tools without a native commands surface, AgentSync converts commands to generated skills or an inlined index. | Claude, Cursor, Copilot (`.prompt.md`), Gemini (TOML), Junie, Cline, Windsurf, Antigravity, OpenCode; Codex and Kimi Code (as skills); Amazon Q, Zed (inlined) |
 | **agents/**   | Subagent personas. Isolated context, restricted tools. Frontmatter: `model`, `tools`, `readonly`. Converted when the target needs a different schema. | Claude, Cursor, Copilot (`.agent.md`), Gemini, Junie, Codex (TOML), Amazon Q (JSON), OpenCode (safe MD) |
+| **scripts/**  | Project scripts copied as a directory tree (any extension; execute bits kept). Absent source dir is a no-op. | All except when a tool YAML omits `targets.scripts.dest` |
+| **workflow/** | Workflow markdown, copied like commands (optional extension rename). Not dest'd onto folders already used for commands (`workflows/`) or GitHub Actions (`.github/workflows`). | Cursor, Claude, Gemini, Codex, Junie, Amazon Q, Zed, Kimi, OpenCode |
 | **settings/** | Permissions & config. Per-tool files (`claude.json`, `gemini.json`, `codex.toml`, `opencode.json`, `zed.json`). Controls allow/deny rules. Claude hooks also go here. | Claude, Gemini, Codex, OpenCode, Zed |
 | **mcp.json**  | Shared canonical `mcpServers` map. Copied to compatible targets and converted into OpenCode's top-level `mcp` map. | Claude, Cursor, Windsurf, Junie, Amazon Q, Kimi Code, OpenCode |
 | **hooks/**    | Event hooks and native project plugins. Per-tool overrides can be JSON or TypeScript. | Cursor, Copilot, Codex, Windsurf, OpenCode |
@@ -217,7 +221,7 @@ agentsync <command> [options]
 | `check`                  |       | Verify outputs match source (CI-friendly, exit code 0/1)                                       |
 | `enable <tools…>`        |       | Opt in to one or more tools (scaffolds editable settings/hooks payloads)                        |
 | `disable <tools…>`       |       | Opt out of one or more tools                                                                    |
-| `add <kind> <name>`      |       | Scaffold a `rule`, `skill`, `command`, `subagent`, or `mcp` server                              |
+| `add <kind> <name>`      |       | Scaffold a `rule`, `skill`, `command`, `subagent`, `script`, `workflow`, or `mcp` server         |
 | `customize <tool> [res]` |       | Create a per-field override for a tool                                                          |
 | `simplify [tool]`        |       | Remove override fields that match the base (`--apply`)                                          |
 | `show <tool>`            |       | Show effective (merged) config for a tool                                                       |
@@ -335,6 +339,13 @@ targets:
     # extension: ".agent.md"
     # format: "toml"
 
+  scripts:
+    dest: ".tool/scripts"
+
+  workflow:
+    dest: ".tool/workflow"
+    # extension: ".md"
+
   settings:
     source: ".ai/src/settings/tool.json"
     dest: ".tool/settings.json"
@@ -386,6 +397,8 @@ targets:
 | **Amazon Q**           | `amazonq.yaml`     | 00-context.md, .amazonq/rules/, +inlined skills index, +inlined commands index, mcp.json, cli-agents (MD→JSON) |
 | **Zed**                | `zed.yaml`         | .rules (prepend AGENTS.md + merged rules), +inlined skills index, +inlined commands index, settings.json   |
 | **Google Antigravity** | `antigravity.yaml` | GEMINI.md, .agents/rules (trigger frontmatter), .agents/skills, .agents/workflows (commands)               |
+
+Scripts sync to each tool's `scripts/` folder when `.ai/src/scripts/` exists. Workflow markdown syncs to `workflow/` except where that would collide with command dests (`workflows/`) or GitHub Actions (`.github/workflows`).
 
 ## Format Conversions
 
@@ -511,8 +524,10 @@ Generated files are output, so an agent that edits them loses the change on the 
    - If `prepend_agents` (rules): prepends AGENTS.md content before merged rules
    - Syncs skills directories (or inlines skill index into agents file if `inline_into_agents`)
    - Syncs commands. Four modes pick the first that fits: native `dest` → `format: toml` → `as_skills` (writes `<skills.dest>/command-*/SKILL.md`) → `inline_into_agents` (appends `## Commands` index to AGENTS file)
-   - Syncs subagents (with optional extension rename or MD→TOML)
-   - Resolves settings / MCP / hooks per the base + override rules below
+  - Syncs subagents (with optional extension rename or MD→TOML)
+  - Syncs scripts as a directory tree when `targets.scripts.dest` is set and `.ai/src/scripts/` exists
+  - Syncs workflow markdown when `targets.workflow.dest` is set and `.ai/src/workflow/` exists
+  - Resolves settings / MCP / hooks per the base + override rules below
    - Runs optional `post_sync` command
 4. Updates `.gitignore`
 5. Disabled tools get their generated files cleaned up automatically.
@@ -658,7 +673,14 @@ If you already have tool-specific configs (`.claude/rules/`, `.cursor/rules/`, c
    mv .claude/agents/security-auditor.md .ai/src/agents/security-auditor.md
    ```
 
-6. **Move settings, MCP, and hooks** into `.ai/src/settings/`, `.ai/src/mcp/`, `.ai/src/hooks/`:
+6. **Move scripts and workflows** into `.ai/src/scripts/` and `.ai/src/workflow/`:
+
+   ```bash
+   mv .claude/scripts/bootstrap.sh .ai/src/scripts/bootstrap.sh
+   mv .cursor/workflow/ship.md .ai/src/workflow/ship.md
+   ```
+
+7. **Move settings, MCP, and hooks** into `.ai/src/settings/`, `.ai/src/mcp/`, `.ai/src/hooks/`:
 
    ```bash
    mv .claude/settings.json .ai/src/settings/claude.json
@@ -666,7 +688,7 @@ If you already have tool-specific configs (`.claude/rules/`, `.cursor/rules/`, c
    mv .cursor/mcp.json .ai/src/mcp/cursor.json
    ```
 
-7. **Run sync** and verify:
+8. **Run sync** and verify:
 
    ```bash
    agentsync sync --dry-run   # Preview what will be generated
@@ -866,12 +888,12 @@ rm -rf .ai/
 
 ## Star history
 
-<a href="https://star-history.com/#yelmuratoff/agent&Date">
-  <img src="https://api.star-history.com/svg?repos=yelmuratoff/agent&type=Date" alt="Star History Chart">
+<a href="https://star-history.com/#aiLi0617/agent_sync&Date">
+  <img src="https://api.star-history.com/svg?repos=aiLi0617/agent_sync&type=Date" alt="Star History Chart">
 </a>
 
 <div align="center">
-  <a href="https://github.com/yelmuratoff/agent/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=yelmuratoff/agent" />
+  <a href="https://github.com/aiLi0617/agent_sync/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=aiLi0617/agent_sync" />
   </a>
 </div> -->

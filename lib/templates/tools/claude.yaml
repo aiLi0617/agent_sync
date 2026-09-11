@@ -17,6 +17,12 @@ targets:
   subagents:
     dest: ".claude/agents"
 
+  scripts:
+    dest: ".claude/scripts"
+
+  workflow:
+    dest: ".claude/workflow"
+
   settings:
     source: ".ai/src/settings/claude.json"
     dest: ".claude/settings.json"

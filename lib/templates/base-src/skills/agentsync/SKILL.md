@@ -1,6 +1,6 @@
 ---
 name: agentsync
-description: Create or edit AgentSync configuration — AGENTS.md, rules, skills, commands, subagents, settings, MCP servers, hooks, or per-tool configs. Use this skill when adding a rule, creating or scaffolding a skill, writing a slash command, defining a subagent persona, editing permissions, configuring an MCP server, setting up the `.ai/src/` directory, or running `agentsync sync` / `rollback` / `add` / `customize` / `resolve` / `simplify` / `profile` — even when the user does not name "AgentSync" explicitly but is editing files in `.ai/src/`, `.claude/`, `.cursor/`, or another tool-config directory.
+description: Create or edit AgentSync configuration — AGENTS.md, rules, skills, commands, subagents, scripts, workflows, settings, MCP servers, hooks, or per-tool configs. Use this skill when adding a rule, creating or scaffolding a skill, writing a slash command, defining a subagent persona, adding a script or workflow, editing permissions, configuring an MCP server, setting up the `.ai/src/` directory, or running `agentsync sync` / `rollback` / `add` / `customize` / `resolve` / `simplify` / `profile` — even when the user does not name "AgentSync" explicitly but is editing files in `.ai/src/`, `.claude/`, `.cursor/`, or another tool-config directory.
 ---
 
 # Working with AgentSync
@@ -23,6 +23,8 @@ Create and maintain AI agent instructions in the AgentSync format.
 │   └── fix-issue.md
 ├── agents/                     # Subagent personas (.md files)
 │   └── code-reviewer.md
+├── scripts/                    # Project scripts (any extension)
+├── workflow/                   # Workflow markdown
 ├── mcp.json                    # Shared MCP servers for compatible targets
 └── tools/                      # Per-tool config and overrides
     ├── claude.yaml             #   tool config: dest paths, format options
@@ -44,6 +46,8 @@ Use `agentsync add <kind> <name>` to create a new file with the correct frontmat
 - `agentsync add skill <name>` — creates `.ai/src/skills/<name>/SKILL.md`
 - `agentsync add command <name>` — creates `.ai/src/commands/<name>.md`
 - `agentsync add subagent <name>` — creates `.ai/src/agents/<name>.md`
+- `agentsync add script <name>` — creates `.ai/src/scripts/<name>.sh`
+- `agentsync add workflow <name>` — creates `.ai/src/workflow/<name>.md`
 - `agentsync add mcp <name> (--command CMD [--args '…'] [--env K=V,…] | --url URL)` — adds a server to the shared `.ai/src/mcp.json`
 
 The command refuses to overwrite existing files; pass `--force` (or `-f`) to replace them. Names must contain only letters, digits, hyphens, and underscores — no path separators, no `..`, no leading `.` or `-`.

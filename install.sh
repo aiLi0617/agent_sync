@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # AgentSync Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/yelmuratoff/agent/main/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/aiLi0617/agent_sync/main/install.sh | bash
 #        AGENTSYNC_VERSION=0.35.0 curl -fsSL .../install.sh | bash   # pin a release tag
 #
 # What it does:
@@ -15,7 +15,7 @@
 
 set -euo pipefail
 
-REPO_URL="${AGENTSYNC_REPO_URL:-https://github.com/yelmuratoff/agent.git}"
+REPO_URL="${AGENTSYNC_REPO_URL:-https://github.com/aiLi0617/agent_sync.git}"
 INSTALL_DIR="${AGENTSYNC_INSTALL_DIR:-$HOME/.agentsync}"
 PIN_VERSION="${AGENTSYNC_VERSION:-}"
 readonly REPO_URL INSTALL_DIR PIN_VERSION
