@@ -37,6 +37,7 @@ flutter_agent/
 .ai/.sync-manifest
 .claude/agents/
 .claude/commands/
+.claude/hooks/agentsync-guard.sh
 .claude/rules/
 .claude/settings.json
 .claude/skills/
