@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+Team setup in one command: generated outputs travel through git, so everyone except the person editing the rules runs nothing.
+
+### Added
+
+- **`outputs: committed | local` in `agent_sync.yaml`, committed by default for new projects.** Committed keeps the generated tool files and `.ai/.sync-manifest` in git, so a teammate gets current rules from `git pull` alone and CI gates drift with `agentsync check`; local is the previous behaviour, where both are gitignored and every clone regenerates. Profile config homes stay gitignored in either mode, being personal. A project without the key keeps local semantics, or committed when it already set `gitignore.update: false`. `agentsync init` writes the key and takes `--outputs`.
+- **`agentsync init` now does the whole setup.** It adopts the tool config a project already has — copying `CLAUDE.md`, `.claude/rules/*`, and the rest into `.ai/src/` so the first sync reproduces them instead of replacing them with the shipped templates — then runs that first sync, and with a `.github/` directory offers a GitHub Actions gate running `agentsync check` against the pinned version. Two destinations that map to one source (`CLAUDE.md` and `AGENTS.md` both become `.ai/src/AGENTS.md`) keep the first and report the rest rather than clobbering. `--existing replace`, `--ci github`, and `--no-sync` drive the same choices non-interactively. The shipped workflow also carries a disabled `autofix` job for teams who would rather have CI run `sync` and commit the outputs into the pull request.
+- **The engine version pin is enforced, not just reported.** Committed outputs are only reproducible when every machine and CI run the same engine, so `sync` and `check` now read the `VERSION` file and stop when it differs from `agentsync_version`, naming the two ways out; in local mode the mismatch is a warning. To match a pin, the installer honours `AGENTSYNC_VERSION=<version>` and `agentsync update <version>` pins an existing install to a release tag.
+- **Generated files are guarded against agent edits.** Tools can declare a `guard` target; Claude's is a generated `PreToolUse` hook at `.claude/hooks/agentsync-guard.sh`, wired up by `hooks.PreToolUse` in the base settings. It matches the target path against `.ai/.sync-manifest` and exits 2 — blocking the write — naming the source to edit and the `adopt` command for an edit already made. It is plain POSIX `sh` and needs no `agentsync` on `PATH`, so it works for a teammate who never installed the CLI; replace it per project at `.ai/src/tools/claude/guard.sh`. The shipped `AGENTS.md` and `rules/core.md` also state that instructions live in `.ai/src/`.
+- **`agentsync adopt <file>` works before the first sync.** It previously refused without a manifest — exactly the state in which a project's own `CLAUDE.md` needs adopting. `--all` still needs the manifest to find drift.
+
+### Fixed
+
+- **A teammate's `git pull` no longer reads as a manual edit.** The README told users to commit `.ai/.sync-manifest` while sync gitignored the outputs it describes. After someone pushed a rule change, everyone else's next `sync` aborted with "Manual edits detected": the pulled manifest carried new hashes while the local outputs were still the old generation, and the `post-merge` hook hit the same abort and silently skipped, so the rule never arrived. The manifest now always shares the git status of the outputs it describes.
+- **`setup-hooks` installs where git actually looks.** It wrote straight into `.git/hooks`, so on any repo with `core.hooksPath` set — husky, lefthook, or a global hooks directory — it created a file nothing would ever run. It now resolves the directory with `git rev-parse --git-path hooks` and prints the snippet to add to the managed hook instead of writing a dead file.
+- **`init --tools <tool>` no longer scaffolds into the deprecated layout.** Payload templates landed in `.ai/src/settings/`, the flat layout the resolver has treated as legacy since 0.11, so the very first `sync` on a fresh project told the user to migrate it. They now land in `.ai/src/tools/<tool>/<resource>.<ext>`.
+- **A first sync says what it replaces.** With no manifest, sync overwrote a project's pre-existing tool config silently. It now lists those paths and points at `rollback` and `adopt`.
+
+### Changed
+
+- **`setup-hooks` installs the hooks that suit the outputs mode.** Committed outputs travel through git, so `post-merge`/`post-checkout` would only fight the incoming files; the risk is the editor forgetting to re-sync, so `pre-commit` re-syncs and fails the commit when that changed a generated file, listing the paths to stage. Local outputs keep `post-merge` and `post-checkout`, with `--pre-commit` still optional. Every installed hook honours `AGENTSYNC_SKIP_HOOKS=1`.
+- **`rules/git.md` no longer tells the agent to gitignore generated agent config** — under committed outputs that is exactly wrong. It now defers to `outputs:` and asks for the generated files in the same commit as the `.ai/src/` change.
+
 ## 0.34.0
 
 ### Fixed
