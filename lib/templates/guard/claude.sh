@@ -15,7 +15,7 @@ payload=$(cat)
 # tool_input.file_path, without a JSON parser: take the first match and strip
 # the escaping Claude Code applies to a path.
 file_path=$(printf '%s' "$payload" \
-    | tr ',{}' '\n\n\n' \
+    | tr ',{}' '\n' \
     | grep -m1 '"file_path"' \
     | sed -e 's/.*"file_path"[[:space:]]*:[[:space:]]*"//' -e 's/".*$//' -e 's|\\\\|\\|g')
 [ -n "$file_path" ] || exit 0
