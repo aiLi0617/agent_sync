@@ -482,6 +482,18 @@ agentsync check              # verify outputs match source (exit 0/1, CI gate)
 
 In both modes `agentsync sync` manages a block in `.gitignore` between `AI SYNC GENERATED START/END` markers: `local` lists every generated path and the manifest, `committed` lists only profile config homes, which are personal in either mode. The manifest always shares the git status of the outputs it describes — that is what keeps a teammate's `git pull` from looking like a manual edit. A project without an `outputs:` key behaves as `local`, or as `committed` when it already set `gitignore.update: false`.
 
+### Engine-owned skills
+
+The `agentsync` skill documents AgentSync itself, so it is versioned with the engine instead of being copied into every project where it would go stale. It lives in the install dir under `lib/templates/base-src/skills/` and is resolved at sync time, after any `shared:` parent, so precedence reads project → shared parent → engine. Upgrade the engine and the next `sync` in any project emits the current version, with no prompt and no merge.
+
+To diverge, keep your own `.ai/src/skills/agentsync/` — a project copy always wins. To drop the layer entirely, set `base_skills: false` in `.ai/agent_sync.yaml`.
+
+Projects scaffolded before this carry their own copy, which shadows the engine's. `agentsync migrate` reports it and `agentsync migrate --apply` removes the copy when it is unedited, leaving an edited one in place as the deliberate override it is.
+
+### Project format revision
+
+`format:` in `.ai/agent_sync.yaml` records which migrations a project has been walked through. It is a small counter bumped only when a project actually needs a step — unlike `agentsync_version`, which moves on every patch — so the reminder appears exactly when something applies and never otherwise. `init` writes the current revision, `migrate --apply` records it, and nothing else touches it. A project behind the engine is flagged on the next interactive command and by `agentsync doctor`.
+
 ### Keeping agents on the source
 
 Generated files are output, so an agent that edits them loses the change on the next sync. Three layers prevent that: the shipped `AGENTS.md` and `rules/core.md` state where instructions live, Claude Code receives a generated `PreToolUse` hook (`.claude/hooks/agentsync-guard.sh`) that blocks a write to any path in `.ai/.sync-manifest` and names the source instead, and `sync` refuses to overwrite a generated file edited since the last run. Replace the hook per project at `.ai/src/tools/claude/guard.sh`, or remove the `hooks` block from your settings override to drop it.
