@@ -82,7 +82,7 @@ template_manifest_record() {
     local i
     for ((i = 0; i < ${#TEMPLATE_MANIFEST_KEYS[@]}; i++)); do
         if [[ "${TEMPLATE_MANIFEST_KEYS[$i]}" == "$rel" ]]; then
-            TEMPLATE_MANIFEST_VALUES[$i]="$hash"
+            TEMPLATE_MANIFEST_VALUES[i]="$hash"
             return 0
         fi
     done
