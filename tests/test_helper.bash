@@ -6,7 +6,12 @@ AGENTSYNC_BIN="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/bin/agentsync.sh
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # Out-of-repo trust signals from the developer's shell must not leak into tests.
-unset AGENTSYNC_ALLOW_POST_SYNC AGENTSYNC_SKIP_POST_SYNC
+unset AGENTSYNC_ALLOW_POST_SYNC AGENTSYNC_SKIP_POST_SYNC AGENTSYNC_SKIP_HOOKS
+
+# The developer's own git config must not decide test outcomes — a global
+# core.hooksPath, for one, moves where hooks are installed.
+export GIT_CONFIG_GLOBAL=/dev/null
+export GIT_CONFIG_SYSTEM=/dev/null
 
 setup_test_project() {
     TEST_PROJECT="$(mktemp -d "${TMPDIR:-/tmp}/agentsync_test.XXXXXX")"
