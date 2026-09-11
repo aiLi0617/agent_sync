@@ -9,9 +9,12 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 unset AGENTSYNC_ALLOW_POST_SYNC AGENTSYNC_SKIP_POST_SYNC AGENTSYNC_SKIP_HOOKS
 
 # The developer's own git config must not decide test outcomes — a global
-# core.hooksPath, for one, moves where hooks are installed.
-export GIT_CONFIG_GLOBAL=/dev/null
-export GIT_CONFIG_SYSTEM=/dev/null
+# core.hooksPath, for one, moves where hooks are installed. A path that does not
+# exist reads as empty config on every platform, where /dev/null is a device
+# Git Bash on Windows does not treat as a config file.
+GIT_CONFIG_GLOBAL="${TMPDIR:-/tmp}/agentsync-tests-absent-gitconfig"
+GIT_CONFIG_SYSTEM="$GIT_CONFIG_GLOBAL"
+export GIT_CONFIG_GLOBAL GIT_CONFIG_SYSTEM
 
 setup_test_project() {
     TEST_PROJECT="$(mktemp -d "${TMPDIR:-/tmp}/agentsync_test.XXXXXX")"
