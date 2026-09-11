@@ -278,6 +278,31 @@ _doctor_check_commands_config() {
     fi
 }
 
+# A guard script the tool never invokes is worse than none: it looks like
+# protection. The base settings register it, so an override written before the
+# guard shipped silently drops the registration.
+_doctor_check_guard_wired() {
+    local tool="$1"
+
+    local guard_source
+    guard_source=$(resolve_payload_source "$tool" "guard")
+    [[ -n "$guard_source" ]] && [[ -f "$guard_source" ]] || return 0
+
+    local guard_dest settings_dest
+    get_tool_value_r "$tool" "targets.guard.dest"; guard_dest="$REPLY"
+    get_tool_value_r "$tool" "targets.settings.dest"; settings_dest="$REPLY"
+    [[ -n "$guard_dest" ]] && [[ -n "$settings_dest" ]] || return 0
+
+    local settings_source
+    settings_source=$(resolve_payload_source "$tool" "settings")
+    [[ -n "$settings_source" ]] && [[ -f "$settings_source" ]] || return 0
+
+    local guard_name="${guard_dest##*/}"
+    if ! grep -qF "$guard_name" "$settings_source"; then
+        _doctor_warn "$(tool_display_name "$tool"): $guard_dest is generated but ${settings_source#"$REPO_ROOT/"} never references it — the guard against edits to generated files is inert. Add the hooks block from the shipped base, or delete the override to inherit it."
+    fi
+}
+
 _doctor_check_payload_ownership() {
     local tool="$1"
     if [[ "$tool" == "opencode" ]]; then
@@ -636,6 +661,7 @@ cmd_doctor() {
             fi
             _doctor_check_commands_config "$tool"
             _doctor_check_payload_ownership "$tool"
+            _doctor_check_guard_wired "$tool"
         done <<< "$enabled"
     fi
     echo ""

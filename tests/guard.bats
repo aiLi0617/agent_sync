@@ -85,6 +85,21 @@ guard_for() {
     [ "$status" -eq 0 ]
 }
 
+@test "guard: doctor warns when a settings override never registers the hook" {
+    mkdir -p .ai/src/tools/claude
+    printf '{\n  "permissions": {\n    "allow": ["Read"]\n  }\n}\n' > .ai/src/tools/claude/settings.json
+    run_agentsync sync --force >/dev/null 2>&1
+
+    run run_agentsync doctor
+    [[ "$output" == *"inert"* ]]
+    [[ "$output" == *"agentsync-guard.sh"* ]]
+}
+
+@test "guard: doctor stays quiet when the hook is registered" {
+    run run_agentsync doctor
+    [[ "$output" != *"inert"* ]]
+}
+
 @test "guard: a project override replaces the shipped script" {
     mkdir -p .ai/src/tools/claude
     printf '#!/bin/sh\nexit 0\n' > .ai/src/tools/claude/guard.sh
